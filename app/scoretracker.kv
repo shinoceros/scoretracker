@@ -1,0 +1,484 @@
+#:import SoundManager soundmanager.SoundManager
+#:import settings settings
+#:import rgba kivy.utils.get_color_from_hex
+#:import Factory kivy.factory.Factory
+
+#:set color_dark_100    (0.000, 0.020, 0.000, 1.000) # rgba('000500FF')
+#:set color_dark_80     (0.000, 0.020, 0.000, 0.800) # rgba('000500CC')
+#:set color_white_100   (1.000, 1.000, 1.000, 1.000) # rgba('FFFFFFFF')
+#:set color_white_80    (1.000, 1.000, 1.000, 0.800) # rgba('FFFFFFCC')
+#:set color_white_2     (1.000, 1.000, 1.000, 0.020) # rgba('FFFFFF05')
+#:set color_transparent (0.000, 0.000, 0.000, 0.000) # rgba('00000000')
+#:set color_orange_12   (0.800, 0.733, 0.125, 0.125) # rgba('CCBB2020')
+#:set color_orange_100  (0.800, 0.733, 0.125, 1.000) # rgba('CCBB20FF')
+#:set color_red_12      (1.000, 0.000, 0.000, 0.188) # rgba('FF000030')
+#:set color_blue_12     (0.000, 0.000, 1.000, 0.188) # rgba('0000FF30')
+
+#:set icon_attacker       u'\uF0E7'
+#:set icon_defender       u'\uF132'
+#:set icon_back           u'\uF053'
+#:set icon_next           u'\uF054'
+#:set icon_refresh        u'\uF021'
+#:set icon_power          u'\uF011'
+#:set icon_wrench         u'\uF0AD'
+#:set icon_wifi           u'\uF1EB'
+#:set icon_football       u'\uF1E3'
+#:set icon_rocket         u'\uF135'
+#:set icon_cloud_download u'\uF0ED'
+
+<BackgroundScreenManager>:
+
+<BaseScreen>:
+	canvas.before:
+		Color:
+			rgba: color_white_100
+		BorderImage:
+			source: './assets/images/bg-ui.png'
+			pos: self.pos
+			size: self.size
+		Color:
+			rgba: color_white_100
+
+
+<ButtonSound@ButtonBehavior>:
+	sound: ''
+	on_press: SoundManager.play(self.sound)
+
+
+<SoundButton@Button+ButtonSound>:
+
+
+<StandardButton@SoundButton>:
+	sound: 'chime_medium'
+
+
+<MenuButton@StandardButton>:
+	menuIcon: ''
+	menuText: ''
+
+	background_color: 1, 0.8, 0.8, 0.8
+	background_normal: './assets/images/roundedbutton.png'
+	border: 20, 20, 20, 20
+
+	BoxLayout:
+		pos: self.parent.pos
+		size: self.parent.size
+		orientation: 'vertical'
+		padding: 30
+		spacing: 10
+		IconMenu:
+			text: root.menuIcon
+			size_hint_y: 0.8
+		Label:
+			font_size: '40sp'
+			font_name: 'RobotoCondensed'
+			bold: True
+			text: root.menuText
+			size_hint_y: 0.2
+
+
+<MenuScreen>:
+	duration: 1.5
+	animate_properties: ['fadeopacity']
+	transition: 'out_cubic'
+	canvas.after:
+		Color:
+			rgba: 0, 0, 0, root.fadeopacity
+		Rectangle:
+			pos: self.pos
+			size: self.size
+
+	GridLayout:
+		cols: 3
+		padding: 30
+		spacing: 30
+		MenuButton:
+			menuText: 'Einstellungen'
+			menuIcon: icon_wrench
+			on_press: root.manager.current = 'settings'
+		MenuButton:
+			menuText: 'RFID Setup'
+			menuIcon: icon_wifi
+			on_press: root.manager.current = 'rfid-setup'
+		MenuButton:
+			menuText: 'Neues Spiel'
+			menuIcon: icon_rocket
+			on_press: root.manager.current = 'lounge'
+		MenuButton:
+			menuText: 'Aus'
+			menuIcon: icon_power
+			on_press: root.shutdown()
+
+
+<NavigationButton@IconButton>:
+	background_color: 1, 0.8, 0.8, 0.8
+	background_normal: './assets/images/roundedbutton.png'
+	background_disabled_normal: './assets/images/roundedbutton.png'
+	border: 20, 20, 20, 20
+
+<IconButton@SoundButton>:
+	iconleft: True
+	icon: ''
+	iconsize: 25
+	icontext: ''
+	sound: 'chime_medium'
+
+	StackLayout:
+		pos: self.parent.pos
+		size: self.parent.size
+		orientation: 'lr-tb' if root.iconleft else 'rl-tb'
+		padding: 10
+		spacing: 5
+		IconBase:
+			text: root.icon
+			font_size: root.iconsize
+			color: color_white_100
+			size_hint_x: 0.2 if root.icontext != '' else 1.0
+		Label:
+			text: root.icontext
+			halign: 'center'
+			font_size: '25sp'
+			font_name: 'RobotoCondensed'
+			size_hint_x: 0.7 if root.icontext != '' else 0.0
+
+
+<TopBar>:
+	title: ''
+    has_back: True
+    has_next: False
+    is_back_enabled: True
+    is_next_enabled: False
+	width_button: 140.0
+	rect_x: self.x + (root.width_button if root.has_back else 0.0)
+	rect_y: self.y + 10.0
+	rect_w:  self.width - (root.width_button if root.has_back else 0) - (root.width_button if root.has_next else 0)
+	rect_h:  self.height - 20
+
+	canvas.before:
+		Color:
+			rgba: color_white_80
+		Rectangle:
+			pos:  [self.rect_x, self.rect_y]
+			size: [self.rect_w, self.rect_h]
+		Color:
+			rgba: 0.3, 0.3, 0.1, 0.7
+		Line:
+			rectangle: self.rect_x, self.rect_y, self.rect_w, self.rect_h
+			cap: 'round'
+			joint: 'round'
+			width: 1.25
+		Color:
+			rgba: color_white_100
+
+	size_hint_y: 0.135
+	orientation: 'horizontal'
+	NavigationButton:
+		iconleft: True
+		icon: icon_back
+		icontext: u'Zurück'
+		disabled: not root.is_back_enabled
+		on_press: root.parent.parent.on_back()
+        opacity: (1.0 if root.has_back else 0.0)
+		size_hint_x: 0.15
+	Label:
+		text: root.title
+		font_name: 'RobotoCondensed'
+		font_size: '30sp'
+		bold: True
+		color: color_dark_100
+		size_hint_x: 0.70
+	NavigationButton:
+		iconleft: False
+		icon: icon_next
+		icontext: 'Weiter'
+		disabled: not root.is_next_enabled
+		on_press: root.parent.parent.on_next()
+		opacity: (1.0 if root.has_next else 0.0)
+		size_hint_x: 0.15
+
+
+<MyBoxLayout@BoxLayout>:
+	orientation: 'vertical'
+	spacing: 30
+	padding: 30
+
+
+<RfidSetupScreen>:
+	MyBoxLayout:
+		TopBar:
+			id: topbar
+		BoxLayout:
+			canvas.before:
+				Color:
+					rgba: color_dark_80
+				Rectangle:
+					pos: self.pos
+					size: self.size
+				Color:
+					rgba: color_white_100
+			orientation: 'vertical'
+			GridLayout:
+				row_force_default: True
+				row_default_height: 70
+				cols: 2
+				padding: 30
+				spacing: 30
+				Label:
+					text: 'Eingetragene Spieler: [b]%d[/b]' % root.numPlayers
+					font_size: '25sp'
+					markup: True
+
+				IconButton:
+					icon: icon_cloud_download
+					icontext: 'aktualisieren'
+					on_press: root.updatePlayersList()
+					size_hint_x: 0.35
+
+			BoxLayout:
+				padding: 30
+				spacing: 10
+				NavigationButton:
+					icon: icon_wifi
+					font_size: '70sp'
+					on_press: root.updatePlayersList()
+
+
+<SettingsScreen>:
+	MyBoxLayout:
+		TopBar:
+			id: topbar
+		GridLayout:
+			canvas.before:
+				Color:
+					rgba: color_dark_80
+				Rectangle:
+					pos: self.pos
+					size: self.size
+				Color:
+					rgba: color_white_100
+            cols: 2
+
+
+<WaitingOverlay>:
+	duration: 1.0
+	animate_properties: ['opacity']
+	transition: 'out_cubic'
+	canvas:
+		Color:
+			rgba: 0, 0, 0, 0.85
+		Rectangle:
+			pos: self.pos
+			size: self.size
+	BoxLayout:
+		pos: root.pos
+		size: root.size
+		orientation: 'vertical'
+		padding: 0, 150
+		IconBase:
+			text: icon_refresh
+			font_size: '80sp'
+			color: color_white_100
+			canvas.before:
+				PushMatrix
+				Rotate:
+					angle: root.angle
+					axis: 0, 0, 1
+					origin: self.center
+			canvas.after:
+				PopMatrix
+
+		Label:
+			text: root.text + ('.' * root.dotsCount) + (' ' * (3 - root.dotsCount))
+			font_size: 30
+
+
+<PlayerSelection@SoundButton>:
+	playerPos: ''
+	playerName: ''
+	iconText: ''
+	iconLeft: True
+	active: False
+
+    sound: 'chime_medium'
+	background_normal: ''
+	background_down: ''
+	background_color: 0, 0, 0, 0
+	border: 0, 0, 0, 0
+
+	StackLayout:
+		pos: self.parent.pos
+		size: self.parent.size
+		orientation: 'lr-tb' if root.iconLeft else 'rl-tb'
+		padding: 10
+		# active highlight
+		canvas:
+			Color:
+				rgba: color_orange_12 if root.active else color_white_2
+			Rectangle:
+				pos: self.pos
+				size: self.size
+#			Color:
+#				rgba: color_white_100
+		IconPlayerSelection:
+			id: icon
+			size_hint_x: 0.3
+			text: root.iconText
+			active: root.active
+		BoxLayout:
+			size_hint_x: 0.6
+			orientation: 'vertical'
+			spacing: 5
+			Label:
+				id: playerName
+				text: root.playerName
+				font_size: '26sp'
+				bold: True
+			Label:
+				text: root.playerPos
+				font_size: '18sp'
+				bold: False
+
+
+<LoungeScreen>:
+	MyBoxLayout:
+		TopBar:
+			id: topbar
+        GridLayout:
+    		canvas.before:
+    			Color:
+    				rgba: color_dark_80
+    			Rectangle:
+    				pos: self.pos
+    				size: self.size
+    			Color:
+    				rgba: color_white_100
+            cols: 2
+			padding: 30
+			spacing: 10
+            Label:
+				canvas.before:
+					Color:
+						rgba: color_red_12
+					Rectangle:
+						pos: self.pos
+						size: self.size
+					Color:
+						rgba: color_white_100
+                text: '[b]Team 1[/b]'
+				markup: True
+				font_size: '30sp'
+				size_hint_y: 0.2
+            Label:
+				canvas.before:
+					Color:
+						rgba: color_blue_12
+					Rectangle:
+						pos: self.pos
+						size: self.size
+					Color:
+						rgba: color_white_100
+                text: '[b]Team 2[/b]'
+				markup: True
+				font_size: '30sp'
+			PlayerSelection:
+				id: p0
+                active: root.currentPlayerId == 0
+				playerPos: 'Angreifer'
+				playerName: root.players[0].get('name', '---')
+                iconText: icon_attacker
+				iconLeft: True
+				on_press: root.click_player_selection(0)
+			PlayerSelection:
+				id: p2
+                active: root.currentPlayerId == 2
+				playerPos: 'Angreifer'
+				playerName: root.players[2].get('name', '---')
+                iconText: icon_attacker
+				iconLeft: False
+				on_press: root.click_player_selection(2)
+			PlayerSelection:
+				id: p1
+                active: root.currentPlayerId == 1
+				playerPos: 'Verteidiger'
+				playerName: root.players[1].get('name', '---')
+                iconText: icon_defender
+				iconLeft: True
+				on_press: root.click_player_selection(1)
+			PlayerSelection:
+				id: p3
+                active: root.currentPlayerId == 3
+				playerPos: 'Verteidiger'
+				playerName: root.players[3].get('name', '---')
+                iconText: icon_defender
+				iconLeft: False
+				on_press: root.click_player_selection(3)
+
+
+<ScoreLabel@Label>:
+	font_name: 'ErbosDracoNovaOpen'
+	font_size: '300sp'
+
+
+<IconBase@Label>:
+	font_name: 'FontAwesome'
+
+<IconMenu@IconBase>:
+	font_size: '130sp'
+	color: color_white_100
+
+<IconPlayerSelection@IconBase>:
+	active: False
+	font_size: '70sp'
+	color: color_orange_100 if root.active else color_white_100
+
+#:set color_button (0.784, 0.443, 0.216, 1)  # brown
+#:set color_button_pressed (0.659, 0.522, 0.431, 1)  # darker brown
+#:set color_font   (0.957, 0.890, 0.843, 1)  # off color_white_100
+
+<MySpinnerOption@SpinnerOption>:
+    background_color: color_button if self.state == 'down' else color_button_pressed
+    background_down: 'atlas://data/images/defaulttheme/button'
+    color: color_font
+
+<PlayerSpinner@Spinner>:
+    availplayers: []
+    text: "--- auswählen ---"
+    values: self.availplayers
+    background_color: color_button if self.state == 'normal' else color_button_pressed
+    background_down: 'atlas://data/images/defaulttheme/spinner'
+    color: color_font
+    option_cls: Factory.get("MySpinnerOption")
+    size_hint: None, None
+
+
+<MatchScreen>:
+    scoreboard: scoreboard
+	MyBoxLayout:
+		TopBar:
+			id: topbar
+        RelativeLayout:
+            pos: self.parent.pos
+            size: self.parent.size
+            # Score Board
+    		BoxLayout:
+                id: scoreboard
+    			orientation: 'horizontal'
+    			canvas.before:
+    				Color:
+    					rgba: color_dark_80
+    				Rectangle:
+    					pos: self.pos
+    					size: self.size
+    				Color:
+    					rgba: color_white_100
+    			ScoreLabel:
+                    id: labelHome
+    				text: str(root.score_home)
+    				size_hint_x: .46
+    			ScoreLabel:
+    				text: ':'
+    				size_hint_x: .27
+    			ScoreLabel:
+                    id: labelAway
+    				text: str(root.score_away)
+    				size_hint_x: .27

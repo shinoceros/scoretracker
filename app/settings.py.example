@@ -1,0 +1,36 @@
+# general
+KIVY_VERSION_REQUIRE = '1.8.0'
+KIVY_GRAPHICS_HEIGHT = 600
+KIVY_GRAPHICS_WIDTH = 1024
+KIVY_LOG_LEVEL = "info"
+
+from kivy.utils import platform, get_color_from_hex
+KIVY_FONTS = [
+    {
+        "name": "RobotoCondensed",
+        "fn_regular":    "./assets/fonts/Roboto-Condensed.ttf",
+        "fn_bold":       "./assets/fonts/Roboto-BoldCondensed.ttf",
+        "fn_italic":     "./assets/fonts/Roboto-CondensedItalic.ttf",
+        "fn_bolditalic": "./assets/fonts/Roboto-BoldCondensedItalic.ttf"
+    },
+    {
+        "name": "ErbosDracoNova",
+        "fn_regular": "./assets/fonts/erbosdraco_nova_nbp.ttf"
+    },
+    {
+        "name": "ErbosDracoNovaOpen",
+        "fn_regular": "./assets/fonts/erbosdraco_nova_open_nbp.ttf"
+    },
+    {
+        "name": "FontAwesome",
+        "fn_regular": "./assets/fonts/fontawesome-webfont.ttf"
+    }
+]
+KIVY_DEFAULT_FONT = "RobotoCondensed"
+
+# kickermanager server
+SERVER_BASE_URL = "http://<ENTER YOUR KICKERMANAGER BASE DIRECTORY HERE>"
+
+STORAGE_FILE = 'players.json'
+STORAGE_PLAYERS = 'players'
+STORAGE_RFIDMAP = 'rfidmap'
