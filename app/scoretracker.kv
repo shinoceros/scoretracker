@@ -25,6 +25,11 @@
 #:set icon_football       u'\uF1E3'
 #:set icon_rocket         u'\uF135'
 #:set icon_cloud_download u'\uF0ED'
+#:set icon_check          u'\uF00C'
+#:set icon_close          u'\uF00D'
+
+<Label>:
+    font_name: settings.KIVY_DEFAULT_FONT
 
 <BackgroundScreenManager>:
 
@@ -70,8 +75,7 @@
 			text: root.menuIcon
 			size_hint_y: 0.8
 		Label:
-			font_size: '40sp'
-			font_name: 'RobotoCondensed'
+			font_size: 40
 			bold: True
 			text: root.menuText
 			size_hint_y: 0.2
@@ -133,22 +137,23 @@
 			text: root.icon
 			font_size: root.iconsize
 			color: color_white_100
-			size_hint_x: 0.2 if root.icontext != '' else 1.0
+			size_hint_x: 0.3 if root.icontext != '' else 1.0
 		Label:
 			text: root.icontext
 			halign: 'center'
-			font_size: '25sp'
-			font_name: 'RobotoCondensed'
-			size_hint_x: 0.7 if root.icontext != '' else 0.0
+			font_size: root.iconsize
+			size_hint_x: 0.6 if root.icontext != '' else 0.0
 
 
 <TopBar>:
 	title: ''
+	customtext: ''
     has_back: True
     has_next: False
     is_back_enabled: True
     is_next_enabled: False
-	width_button: 140.0
+	width_button: 165.0
+	customlabel: customlabel
 	rect_x: self.x + (root.width_button if root.has_back else 0.0)
 	rect_y: self.y + 10.0
 	rect_w:  self.width - (root.width_button if root.has_back else 0) - (root.width_button if root.has_next else 0)
@@ -156,45 +161,49 @@
 
 	canvas.before:
 		Color:
-			rgba: color_white_80
+			rgba: 0.5, 0.4, 0.4, 0.8
 		Rectangle:
+			source: './assets/images/bg-title.png'
 			pos:  [self.rect_x, self.rect_y]
 			size: [self.rect_w, self.rect_h]
-		Color:
-			rgba: 0.3, 0.3, 0.1, 0.7
-		Line:
-			rectangle: self.rect_x, self.rect_y, self.rect_w, self.rect_h
-			cap: 'round'
-			joint: 'round'
-			width: 1.25
-		Color:
-			rgba: color_white_100
 
-	size_hint_y: 0.135
+	size_hint_y: 0.20
 	orientation: 'horizontal'
 	NavigationButton:
 		iconleft: True
 		icon: icon_back
+		iconsize: 30
 		icontext: u'Zurück'
+		sound: 'chime_low'
 		disabled: not root.is_back_enabled
 		on_press: root.parent.parent.on_back()
         opacity: (1.0 if root.has_back else 0.0)
-		size_hint_x: 0.15
+		size_hint_x: 0.175
 	Label:
 		text: root.title
-		font_name: 'RobotoCondensed'
-		font_size: '30sp'
+		font_size: 35
 		bold: True
-		color: color_dark_100
-		size_hint_x: 0.70
-	NavigationButton:
-		iconleft: False
-		icon: icon_next
-		icontext: 'Weiter'
-		disabled: not root.is_next_enabled
-		on_press: root.parent.parent.on_next()
-		opacity: (1.0 if root.has_next else 0.0)
-		size_hint_x: 0.15
+		color: color_white_100
+		size_hint_x: 0.65
+	AnchorLayout:
+		anchor_x: 'right'
+		anchor_y: 'center'
+		size_hint_x: 0.175
+		NavigationButton:
+			iconleft: False
+			icon: icon_next
+			iconsize: 30
+			icontext: 'Weiter'
+			disabled: not root.is_next_enabled
+			on_press: root.parent.parent.on_next()
+			opacity: 1.0 if root.has_next else 0.0
+		Label:
+			id: customlabel
+			text: root.customtext
+			bold: True
+			font_size: 30
+			color: color_white_100
+			opacity: 0.0 if root.has_next else 1.0
 
 
 <MyBoxLayout@BoxLayout>:
@@ -331,12 +340,14 @@
 			Label:
 				id: playerName
 				text: root.playerName
-				font_size: '26sp'
+				font_size: 45
 				bold: True
+				size_hint_y: 0.7
 			Label:
 				text: root.playerPos
-				font_size: '18sp'
+				font_size: 16
 				bold: False
+				size_hint_y: 0.3
 
 
 <LoungeScreen>:
@@ -364,10 +375,10 @@
 						size: self.size
 					Color:
 						rgba: color_white_100
-                text: '[b]Team 1[/b]'
-				markup: True
-				font_size: '30sp'
-				size_hint_y: 0.2
+                text: 'Team 1'
+				bold: True
+				font_size: 30
+				size_hint_y: 0.15
             Label:
 				canvas.before:
 					Color:
@@ -377,9 +388,9 @@
 						size: self.size
 					Color:
 						rgba: color_white_100
-                text: '[b]Team 2[/b]'
-				markup: True
-				font_size: '30sp'
+                text: 'Team 2'
+				bold: True
+				font_size: 30
 			PlayerSelection:
 				id: p0
                 active: root.currentPlayerId == 0
@@ -482,3 +493,43 @@
                     id: labelAway
     				text: str(root.score_away)
     				size_hint_x: .27
+
+<STModalView>:
+	orientation: 'vertical'
+	padding: 10
+	spacing: 20
+	Label:
+		canvas.before:
+			Color:
+				rgba: 1, 0.8, 0.8, 0.5
+			Rectangle:
+				source: './assets/images/bg-title.png'
+				pos: self.pos
+				size: self.size
+			Color:
+				rgba: color_white_100
+		text: root.title
+		font_size: 30
+		bold: True
+		size_hint_y: 0.2
+	Label:
+		text: root.text
+		font_size: 30
+		size_hint_y: 0.5
+	BoxLayout:
+		orientation: 'horizontal'
+		padding: 10
+		spacing: 10
+		size_hint_y: 0.3
+		NavigationButton:
+			icon: icon_check
+			iconleft: True
+			iconsize: 30
+			icontext: 'Ja'
+			on_press: root.on_yes()
+		NavigationButton:
+			icon: icon_close
+			iconleft: False
+			iconsize: 30
+			icontext: 'Nein'
+			on_press: root.on_no()

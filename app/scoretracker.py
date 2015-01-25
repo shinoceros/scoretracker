@@ -16,6 +16,7 @@ from kivy.uix.button import Button
 from kivy.uix.dropdown import DropDown
 from kivy.uix.image import AsyncImage
 from kivy.uix.label import Label
+from kivy.uix.modalview import ModalView
 from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition, NoTransition
 from kivy.uix.widget import Widget
 from kivy.properties import NumericProperty, ObjectProperty, BooleanProperty, ListProperty, StringProperty
@@ -93,6 +94,7 @@ class TopBar(BoxLayout):
     is_back_enabled = BooleanProperty(True)
     has_next = BooleanProperty(False)
     is_next_enabled = BooleanProperty(False)
+    has_customtext = BooleanProperty(False)
     rect_x = NumericProperty(0.0)
     rect_y = NumericProperty(0.0)
     rect_w = NumericProperty(0.0)
@@ -118,6 +120,12 @@ class BaseScreen(Screen, OnPropertyAnimationMixin):
     def denied(self):
         SoundManager.play('chime_down')
 
+    def setTitle(self, text):
+        self.ids.topbar.title = text
+
+    def setCustomText(self, text):
+        self.ids.topbar.customtext = text
+
         
 class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
 
@@ -140,7 +148,7 @@ class RfidSetupScreen(BaseScreen):
 
     def __init__(self, **kwargs):
         super(RfidSetupScreen, self).__init__(**kwargs)
-        self.ids.topbar.title = 'RFID Setup'
+        self.setTitle('RFID Setup')
 
     def on_enter(self):
         self.__updateNumPlayers()
@@ -175,7 +183,7 @@ class SettingsScreen(BaseScreen):
 
     def __init__(self, **kwargs):
         super(SettingsScreen, self).__init__(**kwargs)
-        self.ids.topbar.title = 'Einstellungen'
+        self.setTitle('Einstellungen')
         
 
 class WaitingOverlay(Widget, OnPropertyAnimationMixin):
@@ -249,12 +257,15 @@ class LoungeScreen(BaseScreen):
 
     def __init__(self, **kwargs):
         super(LoungeScreen, self).__init__(**kwargs)
-        self.ids.topbar.title = 'Aufstellung'
+        self.setTitle('Aufstellung')
         self.ids.topbar.has_next = True
+        # FOR TESTING ONLY
+        # self.ids.topbar.is_next_enabled = True
+        # END FOR TESTING ONLY
         self.__reset()
         
     def on_enter(self):
-        self.__reset()
+        pass
 
     def on_next(self):
         self.manager.current = 'match'
@@ -324,6 +335,23 @@ class LoungeScreen(BaseScreen):
         else:
             self.denied()
 
+class STModalView(BoxLayout):
+    title = StringProperty("")
+    text = StringProperty("")
+    
+    def __init__(self, title, text, callback, **kwargs):
+        super(STModalView, self).__init__(**kwargs)
+        self.title = title
+        self.text = text
+        self.callback = callback
+        
+    def on_yes(self):
+        self.parent.dismiss()
+        self.callback()
+        
+    def on_no(self):
+        self.parent.dismiss()
+        
 
 class MatchScreen(BaseScreen):
 
@@ -333,25 +361,49 @@ class MatchScreen(BaseScreen):
     
     def __init__(self, **kwargs):
         super(MatchScreen, self).__init__(**kwargs)
-        self.ids.topbar.title = 'Spiel'
+
+    def on_enter(self):
         self.__reset()
 
+    def on_back(self):
+        if self.running:
+            # game still running, ask for user confirmation
+            view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
+            content = Factory.STModalView(title = 'Spiel abbrechen', text='Das Spiel ist noch nicht beendet.\nWirklich abbrechen?', callback=self.cancelMatch)
+            view.add_widget(content)
+            view.open()
+        else:
+            # game not running anymore
+            if not self.submitted:
+                view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
+                content = Factory.STModalView(title = 'Spiel abbrechen', text='Das Ergebnis wurde noch nicht hochgeladen.\nWirklich abbrechen?', callback=self.cancelMatch)
+                view.add_widget(content)
+                view.open()
+            else:
+                self.manager.current = 'lounge'
+
     def __reset(self):
+        self.setTitle('Spiel')
         self.score_home = 0
         self.score_away = 0
-#        self.playersSpinOpt = SpinnerOption
+        self.setCustomText('00:00')
+        self.running = True
+        self.submitted = False
+        self.startTime = time.time()
+        Clock.unschedule(self.__updateMatchTimer)
+        Clock.schedule_interval(self.__updateMatchTimer, 0.5)
 
-    def __setTitle(self, text):
-        self.ids.topbar.title = text
+    def __checkScore(self):
+        self.running = (self.score_home < 6 and self.score_away < 6)
         
     def __handleGoal(self, team):
-        self.__setTitle("Goal for %s team" % team)
         if team == 'home':
             self.score_home += 1
             obj = self.ids.labelHome
         elif team == 'away':
             self.score_away += 1
             obj = self.ids.labelAway
+        self.__checkScore()
         HighlightOverlay(origObj=obj, parent=self).animate(font_size=500, color=(1, 1, 1, 0))
         i = randint(1,7)
         SoundManager.play('tor%d' % i)
@@ -362,6 +414,16 @@ class MatchScreen(BaseScreen):
         else:
             self.denied()
 
+    def __updateMatchTimer(self, dt):
+        if self.running:
+            elapsed = int(time.time() - self.startTime)
+            self.setCustomText('{:02d}:{:02d}'.format(elapsed / 60, elapsed % 60))
+        else:
+            self.ids.topbar.customlabel.opacity = 1 - self.ids.topbar.customlabel.opacity
+        
+    def cancelMatch(self):
+        self.manager.current = 'lounge'
+        
 
 class ScoreTrackerApp(App):
 
