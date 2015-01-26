@@ -22,7 +22,8 @@ class SoundManagerBase(object):
             self.__runExternalCmd(path)
 
     def __getPlayerSoundPath(self, player):
-        return "./assets/sounds/tts/%d.mp3" % player.get('id')
+        path = "./assets/sounds/tts/{}.mp3".format(player.get('id'))
+        return path
 
     def createPlayerSound(self, player):
         path = self.__getPlayerSoundPath(player)
@@ -32,8 +33,11 @@ class SoundManagerBase(object):
             subprocess.call(cmd, shell=True)
             Logger.info("ScoreTracker: TTS file generated: %s" % path)
 
-    def playName(self, player, delay):
-        path = self.__getPlayerSoundPath(player)
-        Clock.schedule_once(lambda dt: self.__runExternalCmd(path), delay)
+    def playName(self, player, delay=0.0):
+        try:
+            path = self.__getPlayerSoundPath(player)
+            Clock.schedule_once(lambda dt: self.__runExternalCmd(path), delay)
+        except:
+            pass
 
 SoundManager = SoundManagerBase()

@@ -19,7 +19,7 @@ from kivy.uix.label import Label
 from kivy.uix.modalview import ModalView
 from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition, NoTransition
 from kivy.uix.widget import Widget
-from kivy.properties import NumericProperty, ObjectProperty, BooleanProperty, ListProperty, StringProperty
+from kivy.properties import NumericProperty, ObjectProperty, BooleanProperty, ListProperty, StringProperty, DictProperty
 from kivy.animation import Animation
 from kivy.logger import Logger
 from kivy.clock import Clock, mainthread
@@ -90,11 +90,10 @@ class BackgroundScreenManager(ScreenManager):
     
 
 class TopBar(BoxLayout):
-    has_back = BooleanProperty(True)
-    is_back_enabled = BooleanProperty(True)
-    has_next = BooleanProperty(False)
-    is_next_enabled = BooleanProperty(False)
-    has_customtext = BooleanProperty(False)
+    hasBack = BooleanProperty(True)
+    isBackEnabled = BooleanProperty(True)
+    hasNext = BooleanProperty(False)
+    isNextEnabled = BooleanProperty(False)
     rect_x = NumericProperty(0.0)
     rect_y = NumericProperty(0.0)
     rect_w = NumericProperty(0.0)
@@ -142,17 +141,65 @@ class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
         Clock.schedule_once(App.get_running_app().stop, 2.0)
 
 
+class PlayerButton(Button):
+    data = DictProperty({})
+    
+    def __init__(self, data, **kwargs):
+        self.data = data
+        super(PlayerButton, self).__init__(**kwargs)
+        
+        
 class RfidSetupScreen(BaseScreen):
 
-    numPlayers = NumericProperty(0)
-
+    numPlayers = NumericProperty()
+    currentRfid = StringProperty()
+    currentPlayer = DictProperty(rebind=True)
+    dropdownPlayer = ObjectProperty()
+    teaching = BooleanProperty(False)
+    
     def __init__(self, **kwargs):
         super(RfidSetupScreen, self).__init__(**kwargs)
         self.setTitle('RFID Setup')
 
+    def __setupPlayerDropdown(self):
+        self.dropdownPlayer = DropDown()
+        self.dropdownPlayer.bind(on_select=self.onPlayerSelect)
+        
+        players = sorted(gPlayers, key=lambda player: player['name'])
+        for p in players:
+            btn = PlayerButton(data = p)
+            btn.bind(on_release=lambda btn: self.dropdownPlayer.select(btn.data))
+            self.dropdownPlayer.add_widget(btn)
+
+    # player was selected from dropdown list
+    def onPlayerSelect(self, instance, data):
+        self.currentPlayer = data
+
+    # current player object changed
+    def on_currentPlayer(self, instance, value):
+        self.ids.btnPlayer.iconText = self.currentPlayer.get('name', u'---')
+        SoundManager.playName(self.currentPlayer)
+        # enable accept button if current player is set and was not stored before
+        self.ids.btnAccept.disabled = not (self.currentPlayer.has_key('id') and self.currentPlayer.get('id') != gRfidMap.get(self.currentRfid))
+
+    # current rfid object changed
+    def on_currentRfid(self, instance, value):
+        # enable clear button if rfid mapping exists
+        self.ids.btnClear.disabled = not gRfidMap.has_key(self.currentRfid)
+        # disable player selection box if no RFID is set
+        self.ids.btnPlayer.disabled = not self.currentRfid
+        self.teaching = True if self.currentRfid else False
+        
     def on_enter(self):
         self.__updateNumPlayers()
+        Clock.schedule_once(self.__highlightRfid, 0.0)
+        Clock.schedule_interval(self.__highlightRfid, 2.0)
+        self.__setupPlayerDropdown()
 
+    def on_leave(self):
+        Clock.unschedule(self.__highlightRfid)
+        self.__reset()
+        
     def updatePlayersList(self):
         WaitingOverlay(self, self.__fetchPlayersListThread, "Daten werden geladen")
 
@@ -171,12 +218,62 @@ class RfidSetupScreen(BaseScreen):
                 d[settings.STORAGE_PLAYERS] = gPlayers
         self.__updateNumPlayers()
         # generate missing player names
-        for p in players:
+        for p in gPlayers:
             SoundManager.createPlayerSound(p)
+        # update dropdown list
+        self.__setupPlayerDropdown()
 
     def __storeRfidMap(self):
         with PersistentDict(settings.STORAGE_FILE, 'c', format='json') as d:
             d[settings.STORAGE_RFIDMAP] = gRfidMap
+    
+    def __highlightRfid(self, dt):
+        obj = self.ids.iconRfid
+        if not self.teaching:
+            HighlightOverlay(origObj=obj, parent=self, duration=2.0).animate(font_size=180, color=(1, 1, 1, 0))
+
+    def processMessage(self, msg):
+        if msg['trigger'] == 'rfid':
+            self.__handleRfid(msg['data'])
+        else:
+            self.denied()
+
+    def __handleRfid(self, rfid):
+        self.currentRfid = rfid
+        SoundManager.play('chime_up')
+        # RFID --> player ID
+        id = gRfidMap.get(rfid, None)
+        # player ID --> player dict
+        player = getPlayerById(gPlayers, id)
+        if player:
+            time.sleep(0.4)
+            self.currentPlayer = player
+        else:
+            self.currentPlayer = {}
+
+    def confirmRemove(self):
+        # ask for confirmation if RFID map entry deletion is requested
+        view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
+        content = Factory.STModalView(title='RFID-Eintrag löschen', text='Soll der RFID-Eintrag wirklich gelöscht werden?', callback=self.removeEntry)
+        view.add_widget(content)
+        view.open()
+
+    def addEntry(self):
+        global gRfidMap
+        gRfidMap[self.currentRfid] = self.currentPlayer.get('id')
+        self.__storeRfidMap()
+        self.__reset()
+        
+    def removeEntry(self):
+        global gRfidMap
+        gRfidMap.pop(self.currentRfid)
+        self.__storeRfidMap()
+        self.__reset()
+     
+    def __reset(self):
+        self.currentPlayer = {}
+        self.currentRfid = ''
+        self.teaching = False
         
     
 class SettingsScreen(BaseScreen):
@@ -258,9 +355,9 @@ class LoungeScreen(BaseScreen):
     def __init__(self, **kwargs):
         super(LoungeScreen, self).__init__(**kwargs)
         self.setTitle('Aufstellung')
-        self.ids.topbar.has_next = True
+        self.ids.topbar.hasNext = True
         # FOR TESTING ONLY
-        # self.ids.topbar.is_next_enabled = True
+        # self.ids.topbar.isNextEnabled = True
         # END FOR TESTING ONLY
         self.__reset()
         
@@ -280,7 +377,7 @@ class LoungeScreen(BaseScreen):
         countPlayers = 0
         for p in self.players:
             countPlayers = countPlayers + (1 if p else 0)
-        self.ids.topbar.is_next_enabled = (countPlayers == 4)
+        self.ids.topbar.isNextEnabled = (countPlayers == 4)
 
     def click_player_selection(self, id):
         # first click on player block: simply activate
@@ -304,13 +401,11 @@ class LoungeScreen(BaseScreen):
             self.dd.open(obj)
         
     def __handleRfid(self, rfid):
-        Logger.info('ScoreTracker: RFID: %s' % rfid)
         # RFID --> player ID
         id = gRfidMap.get(rfid, None)
-        Logger.info('ScoreTracker: ID: %s' % id)
         # player ID --> player dict
         player = getPlayerById(gPlayers, id)
-        Logger.info('ScoreTracker: Player: %s' % player)
+        Logger.info('ScoreTracker: RFID: {0} - ID: {1} - Player: {2}'.format(rfid, id, player))
         # player does not exist
         if player == None:
             self.denied()
@@ -392,9 +487,13 @@ class MatchScreen(BaseScreen):
         self.startTime = time.time()
         Clock.unschedule(self.__updateMatchTimer)
         Clock.schedule_interval(self.__updateMatchTimer, 0.5)
+        SoundManager.play('whistle_medium')
 
     def __checkScore(self):
-        self.running = (self.score_home < 6 and self.score_away < 6)
+        if self.running:
+            if (self.score_home >= 6 or self.score_away >= 6):
+                self.running = False
+                SoundManager.play('whistle_medium')
         
     def __handleGoal(self, team):
         if team == 'home':

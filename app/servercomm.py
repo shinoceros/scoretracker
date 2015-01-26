@@ -16,8 +16,13 @@ class ServerComm:
         
     def fetchPlayers(self):
         req = urllib2.Request(self.baseurl + '/api/player')
-        resp = urllib2.urlopen(req, timeout=10)
-        return self.__convertPlayerData(resp.read())
+        res = []
+        try:
+            resp = urllib2.urlopen(req, timeout=10)
+            res = self.__convertPlayerData(resp.read())
+        except urllib2.URLError:
+            pass
+        return res
         
 if __name__ == "__main__":
     sc = ServerComm()

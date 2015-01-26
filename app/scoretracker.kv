@@ -26,7 +26,7 @@
 #:set icon_rocket         u'\uF135'
 #:set icon_cloud_download u'\uF0ED'
 #:set icon_check          u'\uF00C'
-#:set icon_close          u'\uF00D'
+#:set icon_remove         u'\uF00D'
 
 <Label>:
     font_name: settings.KIVY_DEFAULT_FONT
@@ -71,8 +71,10 @@
 		orientation: 'vertical'
 		padding: 30
 		spacing: 10
-		IconMenu:
+		IconLabel:
 			text: root.menuIcon
+			font_size: 130
+			color: color_white_100
 			size_hint_y: 0.8
 		Label:
 			font_size: 40
@@ -114,49 +116,52 @@
 			on_press: root.shutdown()
 
 
-<NavigationButton@IconButton>:
-	background_color: 1, 0.8, 0.8, 0.8
+
+<IconButton@SoundButton>:
+	iconLeft: True
+	icon: ''
+	iconSize: 25
+	iconRatio: 0.3
+	iconText: ''
+	iconColor: (1, 0.8, 0.8, 0.8)
+	iconColorDisabled: (0.8, 0.8, 0.8, 0.8)
+	sound: 'chime_medium'
+
+	background_color: self.iconColor if not self.disabled else self.iconColorDisabled
 	background_normal: './assets/images/roundedbutton.png'
 	background_disabled_normal: './assets/images/roundedbutton.png'
 	border: 20, 20, 20, 20
 
-<IconButton@SoundButton>:
-	iconleft: True
-	icon: ''
-	iconsize: 25
-	icontext: ''
-	sound: 'chime_medium'
-
 	StackLayout:
 		pos: self.parent.pos
 		size: self.parent.size
-		orientation: 'lr-tb' if root.iconleft else 'rl-tb'
+		orientation: 'lr-tb' if root.iconLeft else 'rl-tb'
 		padding: 10
-		spacing: 5
-		IconBase:
+		IconLabel:
 			text: root.icon
-			font_size: root.iconsize
+			font_size: root.iconSize
 			color: color_white_100
-			size_hint_x: 0.3 if root.icontext != '' else 1.0
+			size_hint_x: root.iconRatio if root.icon and root.iconText else 1.0 if root.icon and not root.iconText else None
+			size: (0, 0)
 		Label:
-			text: root.icontext
+			text: root.iconText
 			halign: 'center'
-			font_size: root.iconsize
-			size_hint_x: 0.6 if root.icontext != '' else 0.0
-
+			font_size: root.iconSize
+			size_hint_x: 1.0 - root.iconRatio if root.iconText and root.icon else 1.0 if root.iconText and not root.icon else None
+			size: (0, 0)
 
 <TopBar>:
 	title: ''
 	customtext: ''
-    has_back: True
-    has_next: False
-    is_back_enabled: True
-    is_next_enabled: False
+    hasBack: True
+    hasNext: False
+    isBackEnabled: True
+    isNextEnabled: False
 	width_button: 165.0
 	customlabel: customlabel
-	rect_x: self.x + (root.width_button if root.has_back else 0.0)
+	rect_x: self.x + (root.width_button if root.hasBack else 0.0)
 	rect_y: self.y + 10.0
-	rect_w:  self.width - (root.width_button if root.has_back else 0) - (root.width_button if root.has_next else 0)
+	rect_w:  self.width - (root.width_button if root.hasBack else 0) - (root.width_button if root.hasNext else 0)
 	rect_h:  self.height - 20
 
 	canvas.before:
@@ -169,15 +174,15 @@
 
 	size_hint_y: 0.20
 	orientation: 'horizontal'
-	NavigationButton:
-		iconleft: True
+	IconButton:
+		iconLeft: True
 		icon: icon_back
-		iconsize: 30
-		icontext: u'Zurück'
+		iconSize: 30
+		iconText: u'Zurück'
 		sound: 'chime_low'
-		disabled: not root.is_back_enabled
+		disabled: not root.isBackEnabled
 		on_press: root.parent.parent.on_back()
-        opacity: (1.0 if root.has_back else 0.0)
+        opacity: (1.0 if root.hasBack else 0.0)
 		size_hint_x: 0.175
 	Label:
 		text: root.title
@@ -189,31 +194,42 @@
 		anchor_x: 'right'
 		anchor_y: 'center'
 		size_hint_x: 0.175
-		NavigationButton:
-			iconleft: False
+		IconButton:
+			iconLeft: False
 			icon: icon_next
-			iconsize: 30
-			icontext: 'Weiter'
-			disabled: not root.is_next_enabled
+			iconSize: 30
+			iconText: 'Weiter'
+			disabled: not root.isNextEnabled
 			on_press: root.parent.parent.on_next()
-			opacity: 1.0 if root.has_next else 0.0
+			opacity: 1.0 if root.hasNext else 0.0
 		Label:
 			id: customlabel
 			text: root.customtext
 			bold: True
 			font_size: 30
 			color: color_white_100
-			opacity: 0.0 if root.has_next else 1.0
+			opacity: 0.0 if root.hasNext else 1.0
 
 
-<MyBoxLayout@BoxLayout>:
+<SubPageLayout@BoxLayout>:
 	orientation: 'vertical'
-	spacing: 30
+	spacing: 20
 	padding: 30
+
+<PlayerButton>:
+	text: self.data.get('name', '???')
+	font_size: 30
+	size_hint_y: None
+	height: 60
 
 
 <RfidSetupScreen>:
-	MyBoxLayout:
+	iconRfid: iconRfid
+	btnPlayer: btnPlayer
+	btnAccept: btnAccept
+	btnClear: btnClear
+
+	SubPageLayout:
 		TopBar:
 			id: topbar
 		BoxLayout:
@@ -225,12 +241,13 @@
 					size: self.size
 				Color:
 					rgba: color_white_100
+
+			padding: 30
 			orientation: 'vertical'
 			GridLayout:
 				row_force_default: True
 				row_default_height: 70
 				cols: 2
-				padding: 30
 				spacing: 30
 				Label:
 					text: 'Eingetragene Spieler: [b]%d[/b]' % root.numPlayers
@@ -239,21 +256,69 @@
 
 				IconButton:
 					icon: icon_cloud_download
-					icontext: 'aktualisieren'
+					iconText: 'aktualisieren'
+					iconSize: 25
 					on_press: root.updatePlayersList()
 					size_hint_x: 0.35
 
-			BoxLayout:
-				padding: 30
+			GridLayout:
+				rows: 1
 				spacing: 10
-				NavigationButton:
-					icon: icon_wifi
-					font_size: '70sp'
-					on_press: root.updatePlayersList()
+				IconLabel:
+					id: iconRfid
+					text: icon_wifi
+					font_size: 100
+					color: color_orange_100 if root.teaching else color_white_100
+					size_hint_x: 0.2
+				BoxLayout:
+					padding: 0
+					spacing: 0
+					orientation: 'vertical'
+					size_hint_x: 0.20
+					Label:
+						text: 'RFID:'
+						bold: True
+						font_size: 40
+					Label:
+						text: 'Spieler'
+						bold: True
+						font_size: 40
+				BoxLayout:
+					padding: 0
+					spacing: 10
+					orientation: 'vertical'
+					size_hint_x: 0.40
+					Label:
+						text: root.currentRfid if root.currentRfid else '---'
+						font_size: 40
+					IconButton:
+						id: btnPlayer
+						on_release: root.dropdownPlayer.open(self)
+						icon: ''
+						iconText: u'---'
+						iconSize: 40
+						iconColor: (1, 1, 1, 0.3)
+				BoxLayout:
+					padding: 0
+					spacing: 10
+					orientation: 'vertical'
+					size_hint_x: 0.1
+					IconButton:
+						id: btnAccept
+						icon: icon_check
+						iconSize: 40
+						on_press: root.addEntry()
+						disabled: True
+					IconButton:
+						id: btnClear
+						icon: icon_remove
+						iconSize: 40
+						on_press: root.confirmRemove()
+						disabled: True
 
 
 <SettingsScreen>:
-	MyBoxLayout:
+	SubPageLayout:
 		TopBar:
 			id: topbar
 		GridLayout:
@@ -283,7 +348,7 @@
 		size: root.size
 		orientation: 'vertical'
 		padding: 0, 150
-		IconBase:
+		IconLabel:
 			text: icon_refresh
 			font_size: '80sp'
 			color: color_white_100
@@ -351,7 +416,7 @@
 
 
 <LoungeScreen>:
-	MyBoxLayout:
+	SubPageLayout:
 		TopBar:
 			id: topbar
         GridLayout:
@@ -430,14 +495,10 @@
 	font_size: '300sp'
 
 
-<IconBase@Label>:
+<IconLabel@Label>:
 	font_name: 'FontAwesome'
 
-<IconMenu@IconBase>:
-	font_size: '130sp'
-	color: color_white_100
-
-<IconPlayerSelection@IconBase>:
+<IconPlayerSelection@IconLabel>:
 	active: False
 	font_size: '70sp'
 	color: color_orange_100 if root.active else color_white_100
@@ -464,7 +525,7 @@
 
 <MatchScreen>:
     scoreboard: scoreboard
-	MyBoxLayout:
+	SubPageLayout:
 		TopBar:
 			id: topbar
         RelativeLayout:
@@ -521,15 +582,15 @@
 		padding: 10
 		spacing: 10
 		size_hint_y: 0.3
-		NavigationButton:
+		IconButton:
 			icon: icon_check
-			iconleft: True
-			iconsize: 30
-			icontext: 'Ja'
+			iconLeft: True
+			iconSize: 30
+			iconText: 'Ja'
 			on_press: root.on_yes()
-		NavigationButton:
-			icon: icon_close
-			iconleft: False
-			iconsize: 30
-			icontext: 'Nein'
+		IconButton:
+			icon: icon_remove
+			iconLeft: False
+			iconSize: 30
+			iconText: 'Nein'
 			on_press: root.on_no()
