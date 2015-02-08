@@ -153,7 +153,7 @@ class RfidSetupScreen(BaseScreen):
 
     numPlayers = NumericProperty()
     currentRfid = StringProperty()
-    currentPlayer = DictProperty(rebind=True)
+    currentPlayer = DictProperty()
     dropdownPlayer = ObjectProperty()
     teaching = BooleanProperty(False)
     
@@ -179,12 +179,12 @@ class RfidSetupScreen(BaseScreen):
     def on_currentPlayer(self, instance, value):
         self.ids.btnPlayer.iconText = self.currentPlayer.get('name', u'---')
         SoundManager.playName(self.currentPlayer)
-        # enable accept button if current player is set and was not stored before
+        # enable "accept" button if current player is set and was not stored before
         self.ids.btnAccept.disabled = not (self.currentPlayer.has_key('id') and self.currentPlayer.get('id') != gRfidMap.get(self.currentRfid))
 
     # current rfid object changed
     def on_currentRfid(self, instance, value):
-        # enable clear button if rfid mapping exists
+        # enable "remove" button if rfid mapping exists
         self.ids.btnClear.disabled = not gRfidMap.has_key(self.currentRfid)
         # disable player selection box if no RFID is set
         self.ids.btnPlayer.disabled = not self.currentRfid
@@ -192,7 +192,6 @@ class RfidSetupScreen(BaseScreen):
         
     def on_enter(self):
         self.__updateNumPlayers()
-        Clock.schedule_once(self.__highlightRfid, 0.0)
         Clock.schedule_interval(self.__highlightRfid, 2.0)
         self.__setupPlayerDropdown()
 
@@ -450,16 +449,26 @@ class STModalView(BoxLayout):
 
 class MatchScreen(BaseScreen):
 
-    score_home = NumericProperty(0)
-    score_away = NumericProperty(0)
-    scoreboard = ObjectProperty(None)
+    score = ListProperty([0, 0])
+    
+    MAX_GOALS = 6
+    MIN_SCORE_MOVE_PX = 100
     
     def __init__(self, **kwargs):
         super(MatchScreen, self).__init__(**kwargs)
+        self.scoreObjs = [self.ids.labelHome, self.ids.labelAway]
+        self.setTitle('Spiel')
 
     def on_enter(self):
         self.__reset()
+        self.running = True
+        self.startTime = time.time()
+        Clock.schedule_interval(self.__updateMatchTimer, 0.5)
+        SoundManager.play('whistle_medium')
 
+    def on_leave(self):
+        self.__reset()
+        
     def on_back(self):
         if self.running:
             # game still running, ask for user confirmation
@@ -477,42 +486,75 @@ class MatchScreen(BaseScreen):
             else:
                 self.manager.current = 'lounge'
 
-    def __reset(self):
-        self.setTitle('Spiel')
-        self.score_home = 0
-        self.score_away = 0
-        self.setCustomText('00:00')
-        self.running = True
-        self.submitted = False
-        self.startTime = time.time()
-        Clock.unschedule(self.__updateMatchTimer)
-        Clock.schedule_interval(self.__updateMatchTimer, 0.5)
-        SoundManager.play('whistle_medium')
+    def on_score(self, instance, value):
+        if value[0] >= self.MAX_GOALS or value[1] >= self.MAX_GOALS:
+            self.endGame()
 
-    def __checkScore(self):
-        if self.running:
-            if (self.score_home >= 6 or self.score_away >= 6):
-                self.running = False
-                SoundManager.play('whistle_medium')
-        
+    def endGame(self):
+        self.running = False
+        SoundManager.play('whistle_medium')
+            
+    def __reset(self):
+        self.score = [0, 0]
+        self.setCustomText('00:00')
+        self.ids.topbar.customlabel.opacity = 1
+        self.submitted = False
+        self.scoreTouch = None
+        Clock.unschedule(self.__updateMatchTimer)
+
     def __handleGoal(self, team):
         if team == 'home':
-            self.score_home += 1
+            self.score[0] += 1
             obj = self.ids.labelHome
-        elif team == 'away':
-            self.score_away += 1
+        else:
+            self.score[1] += 1
             obj = self.ids.labelAway
-        self.__checkScore()
+
         HighlightOverlay(origObj=obj, parent=self).animate(font_size=500, color=(1, 1, 1, 0))
         i = randint(1,7)
         SoundManager.play('tor%d' % i)
 
     def processMessage(self, msg):
-        if msg['trigger'] == 'goal':
+        if msg['trigger'] == 'goal' and self.running:
             self.__handleGoal(msg['data'])
         else:
             self.denied()
 
+    def handleScoreTouchDown(self, event):
+        self.interpolateColor((1,1,1,1),(1,0,0,1),0.5)
+        if self.running:
+            for i in range(0, 2):
+                obj = self.scoreObjs[i]
+                collide = obj.collide_point(event.pos[0], event.pos[1])
+                if collide:
+                    self.scoreTouch = {'id': i, 'startPos': event.pos[1]}
+
+    def handleScoreTouchMove(self, event):
+        if self.scoreTouch and self.running:
+            obj = self.scoreObjs[self.scoreTouch['id']]
+            ratio = min(1.0, abs(event.pos[1] - self.scoreTouch['startPos']) / self.MIN_SCORE_MOVE_PX)
+            color = self.interpolateColor((1, 1, 1, 1), (1, 0, 0, 1), ratio)
+            obj.color = color
+        
+    def handleScoreTouchUp(self, event):
+        if self.scoreTouch and self.running:
+            id = self.scoreTouch['id']
+            dist = event.pos[1] - self.scoreTouch['startPos']
+            if abs(dist) > self.MIN_SCORE_MOVE_PX:
+                scoreDiff = 1 if dist > 0 else -1;
+                self.score[id] = max(0, min(self.score[id] + scoreDiff, self.MAX_GOALS))
+                HighlightOverlay(origObj=self.scoreObjs[id], parent=self).animate(font_size=500, color=(1, 1, 1, 0))
+            self.scoreObjs[id].color = (1, 1, 1, 1)
+        self.scoreTouch = None
+
+    def interpolateColor(self, colA, colB, ratio):
+        listColA = list(colA)
+        listColB = list(colB)
+        listColRes = []
+        for i in range(0, len(listColA)):
+            listColRes.append(listColA[i] + (listColB[i] - listColA[i]) * ratio)
+        return tuple(listColRes)
+            
     def __updateMatchTimer(self, dt):
         if self.running:
             elapsed = int(time.time() - self.startTime)

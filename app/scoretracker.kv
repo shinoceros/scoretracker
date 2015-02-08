@@ -13,7 +13,7 @@
 #:set color_orange_100  (0.800, 0.733, 0.125, 1.000) # rgba('CCBB20FF')
 #:set color_red_12      (1.000, 0.000, 0.000, 0.188) # rgba('FF000030')
 #:set color_blue_12     (0.000, 0.000, 1.000, 0.188) # rgba('0000FF30')
-
+#:set color_blueish_90 (0.187, 0.637, 0.875, 0.900) # rgba('30A3E0E6')
 #:set icon_attacker       u'\uF0E7'
 #:set icon_defender       u'\uF132'
 #:set icon_back           u'\uF053'
@@ -222,6 +222,11 @@
 	size_hint_y: None
 	height: 60
 
+	background_color: (0.5, 0.5, 0.5, 1)
+	background_normal: './assets/images/roundedbutton.png'
+	background_disabled_normal: './assets/images/roundedbutton.png'
+	border: 20, 20, 20, 20
+
 
 <RfidSetupScreen>:
 	iconRfid: iconRfid
@@ -268,7 +273,7 @@
 					id: iconRfid
 					text: icon_wifi
 					font_size: 100
-					color: color_orange_100 if root.teaching else color_white_100
+					color: color_orange_100 if root.teaching else color_blueish_90
 					size_hint_x: 0.2
 				BoxLayout:
 					padding: 0
@@ -298,6 +303,8 @@
 						iconText: u'---'
 						iconSize: 40
 						iconColor: (1, 1, 1, 0.3)
+						iconColorDisabled: (0.8, 0.8, 0.8, 0.3)
+						disabled: True
 				BoxLayout:
 					padding: 0
 					spacing: 10
@@ -491,69 +498,77 @@
 
 
 <ScoreLabel@Label>:
-	font_name: 'ErbosDracoNovaOpen'
-	font_size: '300sp'
+	font_name: 'ElectronicHighwaySign'
+	font_size: '350sp'
 
 
 <IconLabel@Label>:
 	font_name: 'FontAwesome'
+
 
 <IconPlayerSelection@IconLabel>:
 	active: False
 	font_size: '70sp'
 	color: color_orange_100 if root.active else color_white_100
 
-#:set color_button (0.784, 0.443, 0.216, 1)  # brown
-#:set color_button_pressed (0.659, 0.522, 0.431, 1)  # darker brown
-#:set color_font   (0.957, 0.890, 0.843, 1)  # off color_white_100
-
-<MySpinnerOption@SpinnerOption>:
-    background_color: color_button if self.state == 'down' else color_button_pressed
-    background_down: 'atlas://data/images/defaulttheme/button'
-    color: color_font
-
-<PlayerSpinner@Spinner>:
-    availplayers: []
-    text: "--- auswählen ---"
-    values: self.availplayers
-    background_color: color_button if self.state == 'normal' else color_button_pressed
-    background_down: 'atlas://data/images/defaulttheme/spinner'
-    color: color_font
-    option_cls: Factory.get("MySpinnerOption")
-    size_hint: None, None
-
 
 <MatchScreen>:
-    scoreboard: scoreboard
+	on_touch_down: root.handleScoreTouchDown(args[1])
+	on_touch_move: root.handleScoreTouchMove(args[1])
+	on_touch_up:   root.handleScoreTouchUp(args[1])
 	SubPageLayout:
 		TopBar:
 			id: topbar
-        RelativeLayout:
-            pos: self.parent.pos
-            size: self.parent.size
-            # Score Board
-    		BoxLayout:
-                id: scoreboard
-    			orientation: 'horizontal'
-    			canvas.before:
-    				Color:
-    					rgba: color_dark_80
-    				Rectangle:
-    					pos: self.pos
-    					size: self.size
-    				Color:
-    					rgba: color_white_100
-    			ScoreLabel:
-                    id: labelHome
-    				text: str(root.score_home)
-    				size_hint_x: .46
-    			ScoreLabel:
-    				text: ':'
-    				size_hint_x: .27
-    			ScoreLabel:
-                    id: labelAway
-    				text: str(root.score_away)
-    				size_hint_x: .27
+		# Score Board
+		BoxLayout:
+			orientation: 'vertical'
+			padding: 80, 60
+			canvas.before:
+				Color:
+					rgba: color_dark_80
+				Rectangle:
+					pos: self.pos
+					size: self.size
+				Color:
+					rgba: color_white_100
+			BoxLayout:
+				orientation: 'horizontal'
+				size_hint_y: 0.5
+				ScoreLabel:
+					canvas.before:
+						Color:
+							rgba: 1,0,0,0.2
+#						Rectangle:
+#							pos: self.pos
+#							size: self.size
+						Color:
+							rgba: color_white_100
+					id: labelHome
+					text: str(root.score[0])
+					size_hint_x: 0.42
+				ScoreLabel:
+					canvas.before:
+						Color:
+							rgba: 1,1,0,0.2
+#						Rectangle:
+#							pos: self.pos
+#							size: self.size
+						Color:
+							rgba: color_white_100
+					text: ':'
+					size_hint_x: 0.18
+				ScoreLabel:
+					canvas.before:
+						Color:
+							rgba: 1,0,1,0.2
+#						Rectangle:
+#							pos: self.pos
+#							size: self.size
+						Color:
+							rgba: color_white_100
+					id: labelAway
+					text: str(root.score[1])
+					size_hint_x: 0.4
 
 <STModalView>:
 	orientation: 'vertical'
