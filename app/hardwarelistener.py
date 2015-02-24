@@ -9,9 +9,9 @@ class HardwareListener:
         # Socket to talk to server
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.SUB)
-        self.socket.connect("ipc:///tmp/stmsg.rfid")
-        self.socket.connect("ipc:///tmp/stmsg.goal")
-        self.socket.connect("ipc:///tmp/stmsg.sim")
+        self.socket.connect("tcp://127.0.0.1:5555")
+        self.socket.connect("tcp://127.0.0.1:5556")
+        self.socket.connect("tcp://127.0.0.1:5557")
         self.socket.setsockopt_string(zmq.SUBSCRIBE, u"")
 
     def read(self):

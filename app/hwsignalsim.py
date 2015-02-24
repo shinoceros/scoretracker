@@ -33,7 +33,7 @@ os.system('clear')
 print "HW Signal Simulator\n\nUse the following keys:\n(1) goal home\n(2) goal away\n(3) RFID tag\n(x) Exit Simulator\n"
 context = zmq.Context()
 socket = context.socket(zmq.PUB)
-socket.bind('ipc:///tmp/stmsg.sim')
+socket.bind('tcp://127.0.0.1:5557')
 
 # read RFID map
 with PersistentDict('players.json', 'c', format='json') as d:
@@ -46,9 +46,9 @@ while True:
         sys.stdout.write("\r%s\r" % " " * 30)
         break;
     elif char == '1':
-        send_msg('goal', 'home')
+        send_msg('goal', '1')
     elif char == '2':
-        send_msg('goal', 'away')
+        send_msg('goal', '2')
     elif char == '3' :
         if lenMap == 0:
             rfid = "".join([random.choice(string.digits) for i in xrange(8)])

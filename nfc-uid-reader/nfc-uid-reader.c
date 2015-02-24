@@ -36,7 +36,7 @@ void main(int argc, const char *argv[])
   // set up zmq
   void *zcontext = zmq_ctx_new();
   void *zpublisher = zmq_socket(zcontext, ZMQ_PUB);
-  int rc = zmq_bind(zpublisher, "ipc:///tmp/stmsg.rfid");
+  int rc = zmq_bind(zpublisher, "tcp://127.0.0.1:5556");
   assert (rc == 0);
 
   size_t i;

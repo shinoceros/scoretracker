@@ -355,9 +355,6 @@ class LoungeScreen(BaseScreen):
         super(LoungeScreen, self).__init__(**kwargs)
         self.setTitle('Aufstellung')
         self.ids.topbar.hasNext = True
-        # FOR TESTING ONLY
-        # self.ids.topbar.isNextEnabled = True
-        # END FOR TESTING ONLY
         self.__reset()
         
     def on_enter(self):
@@ -503,7 +500,7 @@ class MatchScreen(BaseScreen):
         Clock.unschedule(self.__updateMatchTimer)
 
     def __handleGoal(self, team):
-        if team == 'home':
+        if team == '1':
             self.score[0] += 1
             obj = self.ids.labelHome
         else:
