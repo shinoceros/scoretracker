@@ -54,12 +54,13 @@
 
 
 <StandardButton@SoundButton>:
-	sound: 'chime_medium'
+	sound: 'chime_medium1'
 
 
-<MenuButton@StandardButton>:
+<MenuButton@SoundButton>:
 	menuIcon: ''
 	menuText: ''
+	sound: 'chime_medium1'
 
 	background_color: 1, 0.8, 0.8, 0.8
 	background_normal: './assets/images/roundedbutton.png'
@@ -113,6 +114,7 @@
 		MenuButton:
 			menuText: 'Aus'
 			menuIcon: icon_power
+			sound: 'chime_down3'
 			on_press: root.shutdown()
 
 
@@ -125,7 +127,7 @@
 	iconText: ''
 	iconColor: (1, 0.8, 0.8, 0.8)
 	iconColorDisabled: (0.8, 0.8, 0.8, 0.8)
-	sound: 'chime_medium'
+	sound: 'chime_medium1'
 
 	background_color: self.iconColor if not self.disabled else self.iconColorDisabled
 	background_normal: './assets/images/roundedbutton.png'
@@ -179,7 +181,7 @@
 		icon: icon_back
 		iconSize: 30
 		iconText: u'Zurück'
-		sound: 'chime_low'
+		sound: 'chime_low1'
 		disabled: not root.isBackEnabled
 		on_press: root.parent.parent.on_back()
         opacity: (1.0 if root.hasBack else 0.0)
@@ -380,7 +382,7 @@
 	iconLeft: True
 	active: False
 
-    sound: 'chime_medium'
+    sound: 'chime_medium1'
 	background_normal: ''
 	background_down: ''
 	background_color: 0, 0, 0, 0

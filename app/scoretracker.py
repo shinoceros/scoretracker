@@ -28,6 +28,7 @@ from functools import partial
 from random import randint
 import threading
 import time
+import os
 
 from hardwarelistener import HardwareListener
 from soundmanager import SoundManager
@@ -117,7 +118,7 @@ class BaseScreen(Screen, OnPropertyAnimationMixin):
         pass
         
     def denied(self):
-        SoundManager.play('chime_down')
+        SoundManager.play('chime_down2')
 
     def setTitle(self, text):
         self.ids.topbar.title = text
@@ -138,7 +139,11 @@ class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
     def shutdown(self):
         # final fade out
         self.fadeopacity = 1.0
-        Clock.schedule_once(App.get_running_app().stop, 2.0)
+        Clock.schedule_once(self.shutdown_delayed, 2.0)
+        
+    def shutdown_delayed(self, dt):
+        #App.get_running_app().stop()
+        os.system("sudo shutdown -h 0")
 
 
 class PlayerButton(Button):
@@ -239,7 +244,7 @@ class RfidSetupScreen(BaseScreen):
 
     def __handleRfid(self, rfid):
         self.currentRfid = rfid
-        SoundManager.play('chime_up')
+        SoundManager.play('chime_up3')
         # RFID --> player ID
         id = gRfidMap.get(rfid, None)
         # player ID --> player dict
@@ -415,7 +420,7 @@ class LoungeScreen(BaseScreen):
             self.players[self.currentPlayerId] = player
             obj = self.ids['p' + str(self.currentPlayerId)].ids.playerName
             HighlightOverlay(origObj=obj, parent=self, active=True, bold=True).animate(font_size=80, color=(1, 1, 1, 0))
-            SoundManager.play('chime_up')
+            SoundManager.play('chime_up3')
             SoundManager.playName(player, 0.4)
             # advance to next player block
             self.currentPlayerId = (self.currentPlayerId + 1) % 4
@@ -518,7 +523,6 @@ class MatchScreen(BaseScreen):
             self.denied()
 
     def handleScoreTouchDown(self, event):
-        self.interpolateColor((1,1,1,1),(1,0,0,1),0.5)
         if self.running:
             for i in range(0, 2):
                 obj = self.scoreObjs[i]
@@ -530,7 +534,7 @@ class MatchScreen(BaseScreen):
         if self.scoreTouch and self.running:
             obj = self.scoreObjs[self.scoreTouch['id']]
             ratio = min(1.0, abs(event.pos[1] - self.scoreTouch['startPos']) / self.MIN_SCORE_MOVE_PX)
-            color = self.interpolateColor((1, 1, 1, 1), (1, 0, 0, 1), ratio)
+            color = self.interpolateColor((1, 1, 1, 1), (1, 0.8, 0, 1), ratio)
             obj.color = color
         
     def handleScoreTouchUp(self, event):
@@ -541,6 +545,7 @@ class MatchScreen(BaseScreen):
                 scoreDiff = 1 if dist > 0 else -1;
                 self.score[id] = max(0, min(self.score[id] + scoreDiff, self.MAX_GOALS))
                 HighlightOverlay(origObj=self.scoreObjs[id], parent=self).animate(font_size=500, color=(1, 1, 1, 0))
+                SoundManager.play('chime_medium1')
             self.scoreObjs[id].color = (1, 1, 1, 1)
         self.scoreTouch = None
 
