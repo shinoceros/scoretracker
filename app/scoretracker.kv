@@ -224,10 +224,7 @@
 	size_hint_y: None
 	height: 60
 
-	background_color: (0.5, 0.5, 0.5, 1)
-	background_normal: './assets/images/roundedbutton.png'
-	background_disabled_normal: './assets/images/roundedbutton.png'
-	border: 20, 20, 20, 20
+	background_color: (0.2, 0.2, 0.1, 1)
 
 
 <RfidSetupScreen>:
@@ -348,7 +345,7 @@
 	transition: 'out_cubic'
 	canvas:
 		Color:
-			rgba: 0, 0, 0, 0.85
+			rgba: 0.1, 0.1, 0.1, 0.95
 		Rectangle:
 			pos: self.pos
 			size: self.size
@@ -466,37 +463,41 @@
 				bold: True
 				font_size: 30
 			PlayerSelection:
+				myid: 0
 				id: p0
-                active: root.currentPlayerId == 0
+                active: root.currentPlayerId == self.myid
 				playerPos: 'Angreifer'
-				playerName: root.players[0].get('name', '---')
+				playerName: root.players[self.myid].get('name', '---')
                 iconText: icon_attacker
 				iconLeft: True
-				on_press: root.click_player_selection(0)
+				on_release: root.click_player_selection(self.myid)
 			PlayerSelection:
+				myid: 2
 				id: p2
-                active: root.currentPlayerId == 2
+                active: root.currentPlayerId == self.myid
 				playerPos: 'Angreifer'
-				playerName: root.players[2].get('name', '---')
+				playerName: root.players[self.myid].get('name', '---')
                 iconText: icon_attacker
 				iconLeft: False
-				on_press: root.click_player_selection(2)
+				on_release: root.click_player_selection(self.myid)
 			PlayerSelection:
+				myid: 1
 				id: p1
-                active: root.currentPlayerId == 1
+                active: root.currentPlayerId == self.myid
 				playerPos: 'Verteidiger'
-				playerName: root.players[1].get('name', '---')
+				playerName: root.players[self.myid].get('name', '---')
                 iconText: icon_defender
 				iconLeft: True
-				on_press: root.click_player_selection(1)
+				on_release: root.click_player_selection(self.myid)
 			PlayerSelection:
+				myid: 3
 				id: p3
-                active: root.currentPlayerId == 3
+                active: root.currentPlayerId == self.myid
 				playerPos: 'Verteidiger'
-				playerName: root.players[3].get('name', '---')
+				playerName: root.players[self.myid].get('name', '---')
                 iconText: icon_defender
 				iconLeft: False
-				on_press: root.click_player_selection(3)
+				on_release: root.click_player_selection(self.myid)
 
 
 <ScoreLabel@Label>:

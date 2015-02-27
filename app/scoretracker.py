@@ -197,7 +197,7 @@ class RfidSetupScreen(BaseScreen):
         
     def on_enter(self):
         self.__updateNumPlayers()
-        Clock.schedule_interval(self.__highlightRfid, 2.0)
+        Clock.schedule_interval(self.__highlightRfid, 1.5)
         self.__setupPlayerDropdown()
 
     def on_leave(self):
@@ -250,7 +250,7 @@ class RfidSetupScreen(BaseScreen):
         # player ID --> player dict
         player = getPlayerById(gPlayers, id)
         if player:
-            time.sleep(0.4)
+            time.sleep(0.5)
             self.currentPlayer = player
         else:
             self.currentPlayer = {}
@@ -355,6 +355,7 @@ class LoungeScreen(BaseScreen):
 
     currentPlayerId = NumericProperty(0)
     players = ListProperty([{}] * 4)
+    dropdownPlayer = ObjectProperty()
 
     def __init__(self, **kwargs):
         super(LoungeScreen, self).__init__(**kwargs)
@@ -363,7 +364,7 @@ class LoungeScreen(BaseScreen):
         self.__reset()
         
     def on_enter(self):
-        pass
+        self.__setupPlayerDropdown()
 
     def on_next(self):
         self.manager.current = 'match'
@@ -371,9 +372,21 @@ class LoungeScreen(BaseScreen):
     def __reset(self):
         self.players = [{}] * 4
         self.currentPlayerId = 0
-#        for p in self.players:
-#            p.availplayers = [str(i) for i in range(100)]
 
+    def __setupPlayerDropdown(self):
+        self.dropdownPlayer = DropDown()
+        self.dropdownPlayer.bind(on_select=self.onPlayerSelect)
+        
+        players = sorted(gPlayers, key=lambda player: player['name'])
+        for p in players:
+            btn = PlayerButton(data = p)
+            btn.bind(on_release=lambda btn: self.dropdownPlayer.select(btn.data))
+            self.dropdownPlayer.add_widget(btn)
+
+    # player was selected from dropdown list
+    def onPlayerSelect(self, instance, data):
+        self.setPlayer(data)
+            
     def on_players(self, instance, value):
         countPlayers = 0
         for p in self.players:
@@ -389,17 +402,9 @@ class LoungeScreen(BaseScreen):
             HighlightOverlay(origObj=obj, parent=self, active=True).animate(font_size=160, color=(1, 1, 1, 0))
         # second click on player block
         else:
-            Logger.info('TODO: make dropdown work!')
-            # TEST
-            obj = self.ids['p' + str((id + 2 ) % 4)]
-            self.dd = DropDown()
-            for i in range(20):
-                btn = Button(text=str(i), size_hint_y=None, height=44)
-                btn.bind(on_release=lambda btn: dd.select(btn.text))
-                self.dd.add_widget(btn)
-            #dd.bind(on_select=lambda instance, x: setattr(mainbutton, 'text', x))
-            self.dd.bind(on_select=lambda instance, x: Logger.info(x))
-            self.dd.open(obj)
+#            obj = self.ids['p' + str((id + 2 ) % 4)]
+            obj = self.ids['p' + str(id)]
+            self.dropdownPlayer.open(obj)
         
     def __handleRfid(self, rfid):
         # RFID --> player ID
@@ -412,19 +417,22 @@ class LoungeScreen(BaseScreen):
             self.denied()
         # player does exist
         else:
-            # player has already been set before
-            if player in self.players:
-                # remove player's position
-                self.players = [{} if p == player else p for p in self.players]
-            # set, highlight and say player name
-            self.players[self.currentPlayerId] = player
-            obj = self.ids['p' + str(self.currentPlayerId)].ids.playerName
-            HighlightOverlay(origObj=obj, parent=self, active=True, bold=True).animate(font_size=80, color=(1, 1, 1, 0))
-            SoundManager.play('chime_up3')
-            SoundManager.playName(player, 0.4)
-            # advance to next player block
-            self.currentPlayerId = (self.currentPlayerId + 1) % 4
+            self.setPlayer(player)
 
+    def setPlayer(self, player):
+        # player has already been set before
+        if player in self.players:
+            # remove player's position
+            self.players = [{} if p == player else p for p in self.players]
+        # set, highlight and say player name
+        self.players[self.currentPlayerId] = player
+        obj = self.ids['p' + str(self.currentPlayerId)].ids.playerName
+        HighlightOverlay(origObj=obj, parent=self, active=True, bold=True).animate(font_size=80, color=(1, 1, 1, 0))
+        SoundManager.play('chime_up3')
+        SoundManager.playName(player, 0.5)
+        # advance to next player block
+        self.currentPlayerId = (self.currentPlayerId + 1) % 4
+            
     def processMessage(self, msg):
         if msg['trigger'] == 'rfid':
             self.__handleRfid(msg['data'])
