@@ -1,4 +1,5 @@
 #:import SoundManager soundmanager.SoundManager
+#:import Trigger soundmanager.Trigger
 #:import settings settings
 #:import rgba kivy.utils.get_color_from_hex
 #:import Factory kivy.factory.Factory
@@ -46,7 +47,7 @@
 
 
 <ButtonSound@ButtonBehavior>:
-	sound: ''
+	sound:
 	on_press: SoundManager.play(self.sound)
 
 
@@ -54,13 +55,13 @@
 
 
 <StandardButton@SoundButton>:
-	sound: 'chime_medium1'
+	sound: Trigger.BUTTON
 
 
 <MenuButton@SoundButton>:
 	menuIcon: ''
 	menuText: ''
-	sound: 'chime_medium1'
+	sound: Trigger.BUTTON
 
 	background_color: 1, 0.8, 0.8, 0.8
 	background_normal: './assets/images/roundedbutton.png'
@@ -88,6 +89,7 @@
 	duration: 1.5
 	animate_properties: ['fadeopacity']
 	transition: 'out_cubic'
+
 	canvas.after:
 		Color:
 			rgba: 0, 0, 0, root.fadeopacity
@@ -95,27 +97,48 @@
 			pos: self.pos
 			size: self.size
 
-	GridLayout:
-		cols: 3
-		padding: 30
-		spacing: 30
-		MenuButton:
-			menuText: 'Einstellungen'
-			menuIcon: icon_wrench
-			on_press: root.manager.current = 'settings'
-		MenuButton:
-			menuText: 'RFID Setup'
-			menuIcon: icon_wifi
-			on_press: root.manager.current = 'rfid-setup'
-		MenuButton:
-			menuText: 'Neues Spiel'
-			menuIcon: icon_rocket
-			on_press: root.manager.current = 'lounge'
-		MenuButton:
-			menuText: 'Aus'
-			menuIcon: icon_power
-			sound: 'chime_down3'
-			on_press: root.shutdown()
+	BoxLayout:
+		orientation: 'vertical'
+
+		GridLayout:
+			cols: 3
+			padding: 30
+			spacing: 30
+			MenuButton:
+				menuText: 'Einstellungen'
+				menuIcon: icon_wrench
+				on_press: root.manager.current = 'settings'
+			MenuButton:
+				menuText: 'RFID Setup'
+				menuIcon: icon_wifi
+				on_press: root.manager.current = 'rfid-setup'
+			MenuButton:
+				menuText: 'Neues Spiel'
+				menuIcon: icon_rocket
+				on_press: root.manager.current = 'lounge'
+			MenuButton:
+				menuText: 'Aus'
+				menuIcon: icon_power
+				sound: Trigger.EXIT
+				on_press: root.shutdown()
+
+		BoxLayout:
+			canvas.before:
+				Color:
+					rgba: color_dark_80
+				Rectangle:
+					pos:  self.pos
+					size: self.size
+
+			size_hint_y: 0.1
+			orientation: 'horizontal'
+			padding: 10
+			Label:
+				text: 'IP: ' + root.ip_addr
+				font_size: 25
+				color: color_white_100
+				text_size: self.size
+
 
 
 
@@ -127,7 +150,7 @@
 	iconText: ''
 	iconColor: (1, 0.8, 0.8, 0.8)
 	iconColorDisabled: (0.8, 0.8, 0.8, 0.8)
-	sound: 'chime_medium1'
+	sound: Trigger.BUTTON
 
 	background_color: self.iconColor if not self.disabled else self.iconColorDisabled
 	background_normal: './assets/images/roundedbutton.png'
@@ -181,7 +204,7 @@
 		icon: icon_back
 		iconSize: 30
 		iconText: u'Zurück'
-		sound: 'chime_low1'
+		sound: Trigger.BACK
 		disabled: not root.isBackEnabled
 		on_press: root.parent.parent.on_back()
         opacity: (1.0 if root.hasBack else 0.0)
@@ -254,7 +277,7 @@
 				cols: 2
 				spacing: 30
 				Label:
-					text: 'Eingetragene Spieler: [b]%d[/b]' % root.numPlayers
+					text: 'Eingetragene Spieler: [b]%d[/b]' % root.num_players
 					font_size: '25sp'
 					markup: True
 
@@ -262,7 +285,7 @@
 					icon: icon_cloud_download
 					iconText: 'aktualisieren'
 					iconSize: 25
-					on_press: root.updatePlayersList()
+					on_press: root.update_players_list()
 					size_hint_x: 0.35
 
 			GridLayout:
@@ -293,11 +316,11 @@
 					orientation: 'vertical'
 					size_hint_x: 0.40
 					Label:
-						text: root.currentRfid if root.currentRfid else '---'
+						text: root.current_rfid if root.current_rfid else '---'
 						font_size: 40
 					IconButton:
 						id: btnPlayer
-						on_release: root.dropdownPlayer.open(self)
+						on_release: root.dropdown_player.open(self)
 						icon: ''
 						iconText: u'---'
 						iconSize: 40
@@ -313,13 +336,13 @@
 						id: btnAccept
 						icon: icon_check
 						iconSize: 40
-						on_press: root.addEntry()
+						on_press: root.add_entry()
 						disabled: True
 					IconButton:
 						id: btnClear
 						icon: icon_remove
 						iconSize: 40
-						on_press: root.confirmRemove()
+						on_press: root.confirm_remove()
 						disabled: True
 
 
@@ -368,18 +391,18 @@
 				PopMatrix
 
 		Label:
-			text: root.text + ('.' * root.dotsCount) + (' ' * (3 - root.dotsCount))
+			text: root.text + ('.' * root.dots_count) + (' ' * (3 - root.dots_count))
 			font_size: 30
 
 
-<PlayerSelection@SoundButton>:
+<PlayerSlot@SoundButton>:
 	playerPos: ''
 	playerName: ''
 	iconText: ''
 	iconLeft: True
 	active: False
 
-    sound: 'chime_medium1'
+    sound: Trigger.BUTTON
 	background_normal: ''
 	background_down: ''
 	background_color: 0, 0, 0, 0
@@ -399,7 +422,7 @@
 				size: self.size
 #			Color:
 #				rgba: color_white_100
-		IconPlayerSelection:
+		IconPlayerSlot:
 			id: icon
 			size_hint_x: 0.3
 			text: root.iconText
@@ -462,42 +485,42 @@
                 text: 'Team 2'
 				bold: True
 				font_size: 30
-			PlayerSelection:
+			PlayerSlot:
 				myid: 0
 				id: p0
-                active: root.currentPlayerId == self.myid
+                active: root.current_player_slot == self.myid
 				playerPos: 'Angreifer'
 				playerName: root.players[self.myid].get('name', '---')
                 iconText: icon_attacker
 				iconLeft: True
-				on_release: root.click_player_selection(self.myid)
-			PlayerSelection:
+				on_release: root.click_player_slot(self.myid)
+			PlayerSlot:
 				myid: 2
 				id: p2
-                active: root.currentPlayerId == self.myid
+                active: root.current_player_slot == self.myid
 				playerPos: 'Angreifer'
 				playerName: root.players[self.myid].get('name', '---')
                 iconText: icon_attacker
 				iconLeft: False
-				on_release: root.click_player_selection(self.myid)
-			PlayerSelection:
+				on_release: root.click_player_slot(self.myid)
+			PlayerSlot:
 				myid: 1
 				id: p1
-                active: root.currentPlayerId == self.myid
+                active: root.current_player_slot == self.myid
 				playerPos: 'Verteidiger'
 				playerName: root.players[self.myid].get('name', '---')
                 iconText: icon_defender
 				iconLeft: True
-				on_release: root.click_player_selection(self.myid)
-			PlayerSelection:
+				on_release: root.click_player_slot(self.myid)
+			PlayerSlot:
 				myid: 3
 				id: p3
-                active: root.currentPlayerId == self.myid
+                active: root.current_player_slot == self.myid
 				playerPos: 'Verteidiger'
 				playerName: root.players[self.myid].get('name', '---')
                 iconText: icon_defender
 				iconLeft: False
-				on_release: root.click_player_selection(self.myid)
+				on_release: root.click_player_slot(self.myid)
 
 
 <ScoreLabel@Label>:
@@ -509,16 +532,16 @@
 	font_name: 'FontAwesome'
 
 
-<IconPlayerSelection@IconLabel>:
+<IconPlayerSlot@IconLabel>:
 	active: False
 	font_size: '70sp'
 	color: color_orange_100 if root.active else color_white_100
 
 
 <MatchScreen>:
-	on_touch_down: root.handleScoreTouchDown(args[1])
-	on_touch_move: root.handleScoreTouchMove(args[1])
-	on_touch_up:   root.handleScoreTouchUp(args[1])
+	on_touch_down: root.handle_score_touch_down(args[1])
+	on_touch_move: root.handle_score_touch_move(args[1])
+	on_touch_up:   root.handle_score_touch_up(args[1])
 	SubPageLayout:
 		TopBar:
 			id: topbar

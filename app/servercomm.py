@@ -1,6 +1,7 @@
 import urllib2
 import settings
 import json
+from kivy.logger import Logger
 
 class ServerComm:
     def __init__(self):
@@ -15,13 +16,15 @@ class ServerComm:
         return players
         
     def fetchPlayers(self):
-        req = urllib2.Request(self.baseurl + '/api/player')
+        url = self.baseurl + '/api/player'
+        req = urllib2.Request(url)
         res = []
         try:
             resp = urllib2.urlopen(req, timeout=10)
             res = self.__convertPlayerData(resp.read())
-        except urllib2.URLError:
-            pass
+        except urllib2.URLError, e:
+            print e
+#            Logger.info('ServerComm', e.args)
         return res
         
 if __name__ == "__main__":
