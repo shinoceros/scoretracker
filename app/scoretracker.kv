@@ -15,6 +15,7 @@
 #:set color_red_12      (1.000, 0.000, 0.000, 0.188) # rgba('FF000030')
 #:set color_blue_12     (0.000, 0.000, 1.000, 0.188) # rgba('0000FF30')
 #:set color_blueish_90 (0.187, 0.637, 0.875, 0.900) # rgba('30A3E0E6')
+
 #:set icon_attacker       u'\uF0E7'
 #:set icon_defender       u'\uF132'
 #:set icon_back           u'\uF053'
@@ -26,8 +27,10 @@
 #:set icon_football       u'\uF1E3'
 #:set icon_rocket         u'\uF135'
 #:set icon_cloud_download u'\uF0ED'
+#:set icon_cloud_upload   u'\uF0EE'
 #:set icon_check          u'\uF00C'
 #:set icon_remove         u'\uF00D'
+#:set icon_plug           u'\uF1E6'
 
 <Label>:
     font_name: settings.KIVY_DEFAULT_FONT
@@ -122,7 +125,7 @@
 				sound: Trigger.EXIT
 				on_press: root.shutdown()
 
-		BoxLayout:
+		StackLayout:
 			canvas.before:
 				Color:
 					rgba: color_dark_80
@@ -131,16 +134,21 @@
 					size: self.size
 
 			size_hint_y: 0.1
-			orientation: 'horizontal'
-			padding: 10
-			Label:
-				text: 'IP: ' + root.ip_addr
+			orientation: 'lr-tb'
+			padding: 13
+			IconLabel:
+				text: icon_plug
 				font_size: 25
 				color: color_white_100
+				width: 60
+				size_hint: (None, 1.0)
+			Label:
+				text: root.ip_addr
+				font_size: 25
+				color: color_white_100
+				size_hint: (None, 1.0)
 				text_size: self.size
-
-
-
+				width: 300
 
 <IconButton@SoundButton>:
 	iconLeft: True
@@ -443,6 +451,35 @@
 				bold: False
 				size_hint_y: 0.3
 
+<MatchPlayerLabel@StackLayout>:
+	playerName: ''
+	iconText: ''
+	iconLeft: True
+
+	StackLayout:
+		pos: self.parent.pos
+		size: self.parent.size
+		orientation: 'lr-tb' if root.iconLeft else 'rl-tb'
+		padding: 10
+		# TODO: winner highlight
+#		canvas:
+#			Color:
+#				rgba: color_orange_12 if root.active else color_white_2
+#			Rectangle:
+#				pos: self.pos
+#				size: self.size
+#			Color:
+#				rgba: color_white_100
+		IconLabel:
+			size_hint_x: 0.3
+			text: root.iconText
+			font_size: 30
+		Label:
+			size_hint_x: 0.6
+			text: root.playerName
+			font_size: 30
+			bold: True
+			size_hint_y: 0.7
 
 <LoungeScreen>:
 	SubPageLayout:
@@ -534,7 +571,7 @@
 
 <IconPlayerSlot@IconLabel>:
 	active: False
-	font_size: '70sp'
+	font_size: 70
 	color: color_orange_100 if root.active else color_white_100
 
 
@@ -548,7 +585,7 @@
 		# Score Board
 		BoxLayout:
 			orientation: 'vertical'
-			padding: 80, 60
+			padding: 20, 20
 			canvas.before:
 				Color:
 					rgba: color_dark_80
@@ -559,7 +596,7 @@
 					rgba: color_white_100
 			BoxLayout:
 				orientation: 'horizontal'
-				size_hint_y: 0.5
+				size_hint_y: 0.8
 				ScoreLabel:
 					canvas.before:
 						Color:
@@ -571,7 +608,7 @@
 							rgba: color_white_100
 					id: labelHome
 					text: str(root.score[0])
-					size_hint_x: 0.42
+					size_hint_x: 0.425
 				ScoreLabel:
 					canvas.before:
 						Color:
@@ -582,7 +619,7 @@
 						Color:
 							rgba: color_white_100
 					text: ':'
-					size_hint_x: 0.18
+					size_hint_x: 0.175
 				ScoreLabel:
 					canvas.before:
 						Color:
@@ -595,6 +632,47 @@
 					id: labelAway
 					text: str(root.score[1])
 					size_hint_x: 0.4
+
+			BoxLayout:
+				orientation: 'horizontal'
+				size_hint_y: 0.2
+
+				# players 1, 2
+				BoxLayout:
+					orientation: 'vertical'
+					size_hint_x: 0.425
+					MatchPlayerLabel:
+						playerName: root.players[0].get('name', '---')
+						iconText: icon_attacker
+						iconLeft: True
+					MatchPlayerLabel:
+						playerName: root.players[1].get('name', '---')
+						iconText: icon_defender
+						iconLeft: True
+				# submit button
+				IconButton:
+					size_hint_x: 0.175
+					icon: icon_cloud_upload if root.state in ['finished', 'submitting'] else icon_check if root.state == 'submit_success' else icon_remove if root.state == 'submit_failed' else ''
+					iconColor: (0, 1, 0, 0.8) if root.state == 'submit_success' else (1, 0, 0, 0.8) if root.state == 'submit_failed' else (1, 0.8, 0.8, 0.8)
+					iconColorDisabled: (0, 1, 0, 0.8) if root.state == 'submit_success' else (1, 0, 0, 0.8) if root.state == 'submit_failed' else (0.8, 0.8, 0.8, 0.8)
+					iconLeft: True
+					iconSize: 45
+					iconText: ''
+					on_press: root.submit_score()
+					opacity: 0.0 if (root.state in ['', 'running']) else 1.0
+					disabled: root.state in ['', 'running', 'submitting', 'submit_success']
+				# players 3, 4
+				BoxLayout:
+					orientation: 'vertical'
+					size_hint_x: 0.4
+					MatchPlayerLabel:
+						playerName: root.players[2].get('name', '---')
+						iconText: icon_attacker
+						iconLeft: False
+					MatchPlayerLabel:
+						playerName: root.players[3].get('name', '---')
+						iconText: icon_defender
+						iconLeft: False
 
 <STModalView>:
 	orientation: 'vertical'

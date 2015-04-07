@@ -31,7 +31,7 @@ from hardwarelistener import HardwareListener
 from soundmanager import SoundManager, Trigger
 from onpropertyanimationmixin import OnPropertyAnimationMixin
 from persistentdict import PersistentDict
-from servercomm import ServerComm
+from servercom import ServerCom
 import networkinfo
 
 # GLOBALS
@@ -43,6 +43,18 @@ def get_player_by_id(players, player_id):
 
 def get_player_by_name(players, player_name):
     return next((item for item in players if item["name"] == player_name), None)
+
+
+class GameData(object):
+    players = []
+    
+    def set_players(self, players):
+        self.players = players
+
+    def get_players(self):
+        return self.players
+        
+game_data = GameData()
 
 
 class BackgroundScreenManager(ScreenManager):
@@ -225,9 +237,8 @@ class RfidSetupScreen(BaseScreen):
 
     def __fetch_players_list_thread(self):
         # fetch players list from remote server
-        server_comm = ServerComm()
         global g_players
-        players = server_comm.fetchPlayers()
+        players = ServerCom.fetch_players()
         if players.__len__() > 0:
             g_players = players
             # store players in file
@@ -402,6 +413,8 @@ class LoungeScreen(BaseScreen):
         self.set_player(data)
 
     def on_players(self, instance, value):
+        global game_data
+        game_data.set_players(value)
         count_players = 0
         for player in self.players:
             count_players = count_players + (1 if player else 0)
@@ -472,6 +485,8 @@ class STModalView(BoxLayout):
 class MatchScreen(BaseScreen):
 
     score = ListProperty([0, 0])
+    state = StringProperty('')
+    players = ListProperty([{}] * 4)
 
     MAX_GOALS = 6
     MIN_SCORE_MOVE_PX = 100
@@ -480,15 +495,17 @@ class MatchScreen(BaseScreen):
         super(MatchScreen, self).__init__(**kwargs)
         self.score_objects = [self.ids.labelHome, self.ids.labelAway]
         self.set_title('Spiel')
-        self.running = False
-        self.submitted = False
+        self.state = ''
         self.score_touch = None
         self.start_time = 0.0
 
     def on_enter(self):
         self.__reset()
-        self.running = True
+        self.state = 'running'
         self.start_time = time.time()
+        global game_data
+        self.players = game_data.get_players()
+
         Clock.schedule_interval(self.__update_match_timer, 0.5)
         SoundManager.play(Trigger.GAME_START)
 
@@ -496,34 +513,34 @@ class MatchScreen(BaseScreen):
         self.__reset()
 
     def on_back(self):
-        if self.running:
-            # game still running, ask for user confirmation
+        # game still running, ask for user confirmation
+        if self.state == 'running':
             view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
             content = Factory.STModalView(title='Spiel abbrechen', text='Das Spiel ist noch nicht beendet.\nWirklich abbrechen?', callback=self.cancel_match)
             view.add_widget(content)
             view.open()
+        # game not running anymore
+        elif self.state in ['finished', 'submit_failed']:
+            view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
+            content = Factory.STModalView(title='Spiel abbrechen', text='Das Ergebnis wurde noch nicht hochgeladen.\nWirklich abbrechen?', callback=self.cancel_match)
+            view.add_widget(content)
+            view.open()
         else:
-            # game not running anymore
-            if not self.submitted:
-                view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
-                content = Factory.STModalView(title='Spiel abbrechen', text='Das Ergebnis wurde noch nicht hochgeladen.\nWirklich abbrechen?', callback=self.cancel_match)
-                view.add_widget(content)
-                view.open()
-            else:
-                self.manager.current = 'lounge'
+            self.manager.current = 'lounge'
 
     def on_score(self, instance, value):
         if value[0] >= self.MAX_GOALS or value[1] >= self.MAX_GOALS:
-            self.running = False
+            self.state = 'finished'
+
             SoundManager.play(Trigger.GAME_END)
         else:
-            self.running = True
+            self.state = 'running'
 
     def __reset(self):
         self.score = [0, 0]
         self.set_custom_text('00:00')
         self.ids.topbar.customlabel.opacity = 1
-        self.submitted = False
+        self.state = ''
         self.score_touch = None
         Clock.unschedule(self.__update_match_timer)
 
@@ -539,7 +556,7 @@ class MatchScreen(BaseScreen):
         SoundManager.play(Trigger.GOAL)
 
     def process_message(self, msg):
-        if msg['trigger'] == 'goal' and self.running:
+        if msg['trigger'] == 'goal' and self.state == 'running':
             self.__handle_goal(msg['data'])
         else:
             self.denied()
@@ -580,7 +597,7 @@ class MatchScreen(BaseScreen):
         return tuple(list_color_result)
 
     def __update_match_timer(self, dt):
-        if self.running:
+        if self.state == 'running':
             elapsed = int(time.time() - self.start_time)
             self.ids.topbar.customlabel.opacity = 1
             self.set_custom_text('{:02d}:{:02d}'.format(elapsed / 60, elapsed % 60))
@@ -588,8 +605,20 @@ class MatchScreen(BaseScreen):
             self.ids.topbar.customlabel.opacity = 1 - self.ids.topbar.customlabel.opacity
 
     def cancel_match(self):
+        SoundManager.play(Trigger.MENU)
         self.manager.current = 'lounge'
+        
+    def submit_score(self):
+        self.state = 'submitting'
+        WaitingOverlay(self, self.__submit_score_thread, "Daten werden gespeichert")
 
+    def __submit_score_thread(self):
+        # submit score to remote server
+        if ServerCom.submit_score(self.players, self.score[0], self.score[1]):
+            self.state = 'submit_success'
+        else:
+            self.state = 'submit_failed'
+        
 
 class ScoreTrackerApp(App):
 

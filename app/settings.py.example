@@ -14,12 +14,8 @@ KIVY_FONTS = [
         "fn_bolditalic": "./assets/fonts/Roboto-BoldCondensedItalic.ttf"
     },
     {
-        "name": "ErbosDracoNova",
-        "fn_regular": "./assets/fonts/erbosdraco_nova_nbp.ttf"
-    },
-    {
-        "name": "ErbosDracoNovaOpen",
-        "fn_regular": "./assets/fonts/erbosdraco_nova_open_nbp.ttf"
+        "name": "ElectronicHighwaySign",
+        "fn_regular": "./assets/fonts/EHSMB.ttf"
     },
     {
         "name": "FontAwesome",
@@ -30,6 +26,8 @@ KIVY_DEFAULT_FONT = "RobotoCondensed"
 
 # kickermanager server
 SERVER_BASE_URL = "http://<ENTER YOUR KICKERMANAGER BASE DIRECTORY HERE>"
+SERVER_USER_ID = <DEDICATED USER ID>
+SERVER_USER_PIN = "<PIN>"
 
 STORAGE_FILE = 'players.json'
 STORAGE_PLAYERS = 'players'

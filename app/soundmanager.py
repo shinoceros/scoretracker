@@ -77,7 +77,9 @@ class SoundManagerBase(object):
             Trigger.RFID:           [{ 'sound': 'rfid',    'volume': 100, 'loop': False, 'delay': 0.0 }],
             Trigger.BUTTON:         [{ 'sound': 'button',  'volume': 100, 'loop': False, 'delay': 0.0 }],
             Trigger.BACK:           [{ 'sound': 'back',    'volume': 100, 'loop': False, 'delay': 0.0 }],
-            Trigger.EXIT:           [{ 'sound': 'exit',    'volume': 100, 'loop': False, 'delay': 0.0 }],
+            Trigger.EXIT:           [
+                                        { 'stoploop': True },
+                                        { 'sound': 'exit',    'volume': 100, 'loop': False, 'delay': 0.0 }],
             Trigger.SWIPE:          [{ 'sound': 'button',  'volume': 100, 'loop': False, 'delay': 0.0 }],
             Trigger.PLAYER_JOINED:  [
                                         { 'sound': 'rfid',    'volume': 100, 'loop': False, 'delay': 0.0 },
@@ -93,37 +95,42 @@ class SoundManagerBase(object):
         if trigger in self.map_trigger:
             commands = self.map_trigger[trigger]
             for command in commands:
-                sound_conf = self.map_sound_files[command['sound']]
-                path = ''
+                if 'sound' in command:
+                    sound_conf = self.map_sound_files[command['sound']]
+                    path = ''
 
-                if sound_conf['type'] == 'random':
-                    if len(sound_conf['files']):
-                        path = sound_conf['files'][0]
-                        sound_conf['files'].rotate(1)
-                elif sound_conf['type'] == 'fixed':
-                    if len(sound_conf['files']):
-                        path = sound_conf['files'][0]
-                elif sound_conf['type'] == 'indexed':
-                    # ayayay....
-                    if 'id' in param and param['id'] in sound_conf['map']:
-                        path = sound_conf['map'][param['id']]
+                    if sound_conf['type'] == 'random':
+                        if len(sound_conf['files']):
+                            path = sound_conf['files'][0]
+                            sound_conf['files'].rotate(1)
+                    elif sound_conf['type'] == 'fixed':
+                        if len(sound_conf['files']):
+                            path = sound_conf['files'][0]
+                    elif sound_conf['type'] == 'indexed':
+                        # ayayay....
+                        if 'id' in param and param['id'] in sound_conf['map']:
+                            path = sound_conf['map'][param['id']]
 
-                if path != '':
-                    self.si.play(path, command['volume'], command['loop'], command['delay'])
+                    if path != '':
+                        self.si.play(path, command['volume'], command['loop'], command['delay'])
+                elif 'stoploop' in command:
+                    self.si.stop_loop()
 
     def __thread(self):
         pass
 
     def create_player_sound(self, player):
         if 'id' in player:
-            id = player['id']
-            if id in self.map_sound_files['player']['map']:
-                path = self.map_sound_files['player']['map'][id]
+            id = int(player['id'])
+            if id not in self.map_sound_files['player']['map']:
+                path = "{}players/{}.mp3".format(self.BASEPATH, id)
+                print path
                 if not os.path.isfile(path):
                     # create TTS file
                     cmd = "espeak -s110 -v%s \"%s\" --stdout | avconv -i - -ar 44100 " \
                     "-ac 2 -ab 192k -f mp3 \"%s\"" % ("mb-de7", player['name'], path)
                     subprocess.call(cmd, shell=True)
                     Logger.info("ScoreTracker: TTS file generated: %s" % path)
+                    self.map_sound_files['player']['map'][id] = path
 
 SoundManager = SoundManagerBase()
