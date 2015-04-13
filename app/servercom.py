@@ -52,25 +52,27 @@ class ServerComBase:
         r = self.session.get(url)
         return self.__convertPlayerData(r)
 
-    def submit_score(self, players, goals1, goals2):
+    def submit_score(self, players, goals):
+        retval = False
+        elo = 0.0
         try:
-            # 1. login
-            if self.__login().status_code != 200:
-                return False
+# 1. login
+            if self.__login().status_code == 200:
                 
-            # 2. submit
-            if self.__submit_score(players, goals1, goals2).status_code != 200:
-                return False
-            pass
+# 2. submit
+                response = self.__submit_score(players, goals[0], goals[1])
+                if response.status_code == 200:
+                    data = response.json()
+                    elo = data.get('deltaelo', 0.0)
+                        
 
-            # 3, logout
-            if self.__logout().status_code != 200:
-                return False
+# 3. logout
+                    if self.__logout().status_code == 200:
+                        retval = True
         except requests.ConnectionError, e:
             print e
-            return False
 
-        return True
+        return (retval, elo)
 
 ServerCom = ServerComBase()
 

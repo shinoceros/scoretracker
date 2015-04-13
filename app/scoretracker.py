@@ -10,9 +10,11 @@ Config.set('kivy', 'log_level', settings.KIVY_LOG_LEVEL)
 from kivy.app import App
 from kivy.core.text import LabelBase
 from kivy.factory import Factory
+from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.dropdown import DropDown
+from kivy.uix.label import Label
 from kivy.uix.modalview import ModalView
 from kivy.uix.screenmanager import ScreenManager
 from kivy.uix.screenmanager import Screen
@@ -33,6 +35,7 @@ from onpropertyanimationmixin import OnPropertyAnimationMixin
 from persistentdict import PersistentDict
 from servercom import ServerCom
 import networkinfo
+import icons
 
 # GLOBALS
 g_players = []
@@ -46,7 +49,7 @@ def get_player_by_name(players, player_name):
 
 
 class GameData(object):
-    players = []
+    players = [{}] * 4
     
     def set_players(self, players):
         self.players = players
@@ -111,6 +114,35 @@ class TopBar(BoxLayout):
     rect_w = NumericProperty(0.0)
     rect_h = NumericProperty(0.0)
 
+class ButtonSound(ButtonBehavior):
+    pass
+
+class SoundButton(Button, ButtonSound):
+    pass
+
+class IconButton(SoundButton):
+    icon = StringProperty('')
+    icon_angle = NumericProperty(0.0)
+    blocking = BooleanProperty(False)
+    reset_icon_when_done = True
+    last_icon = ''
+
+    def on_blocking(self, instance, block):
+        if block:
+            self.disabled = True
+            self.last_icon = self.icon
+            self.icon = icons.refresh
+            Clock.schedule_interval(self.__rotate, 0.03)
+        else:
+            Clock.unschedule(self.__rotate)
+            self.icon_angle = 0
+            if self.reset_icon_when_done:
+                self.icon = self.last_icon
+            self.disabled = False
+            
+    def __rotate(self, dt):
+        self.icon_angle -= 5
+        
 
 class BaseScreen(Screen, OnPropertyAnimationMixin):
 
@@ -190,6 +222,8 @@ class RfidSetupScreen(BaseScreen):
     def __init__(self, **kwargs):
         super(RfidSetupScreen, self).__init__(**kwargs)
         self.set_title('RFID Setup')
+        self.__setup_player_dropdown()
+        self.thread = None
 
     def __setup_player_dropdown(self):
         self.dropdown_player = DropDown()
@@ -222,15 +256,29 @@ class RfidSetupScreen(BaseScreen):
 
     def on_enter(self):
         self.__updatenum_players()
-        Clock.schedule_interval(self.__highligh_rfid, 1.5)
-        self.__setup_player_dropdown()
+        Clock.schedule_interval(self.__highlight_rfid, 1.5)
 
     def on_leave(self):
-        Clock.unschedule(self.__highligh_rfid)
+        Clock.unschedule(self.__highlight_rfid)
         self.__reset()
 
     def update_players_list(self):
-        WaitingOverlay(self, self.__fetch_players_list_thread, "Daten werden geladen")
+        Clock.unschedule(self.__highlight_rfid)
+        self.ids.btnUpdate.blocking = True
+        self.thread = threading.Thread(target=self.__fetch_players_list_thread)
+        self.thread.start()
+        Clock.schedule_once(self.__check_thread, 0)
+
+    def __check_thread(self, dt):
+        if self.thread.is_alive():
+            # still working...
+            Clock.schedule_once(self.__check_thread, 0.25)
+        else:
+            # finished!
+            self.ids.btnUpdate.blocking = False
+            # update dropdown list
+            self.__setup_player_dropdown()
+            Clock.schedule_interval(self.__highlight_rfid, 1.5)
 
     def __updatenum_players(self):
         self.num_players = g_players.__len__()
@@ -248,14 +296,12 @@ class RfidSetupScreen(BaseScreen):
         # generate missing player names
         for player in g_players:
             SoundManager.create_player_sound(player)
-        # update dropdown list
-        self.__setup_player_dropdown()
 
     def __store_rfid_map(self):
         with PersistentDict(settings.STORAGE_FILE, 'c', format='json') as dictionary:
             dictionary[settings.STORAGE_RFIDMAP] = g_rfid_map
 
-    def __highligh_rfid(self, dt):
+    def __highlight_rfid(self, dt):
         obj = self.ids.iconRfid
         if not self.teaching:
             HighlightOverlay(orig_obj=obj, parent=self, duration=2.0).animate(font_size=180, color=(1, 1, 1, 0))
@@ -389,7 +435,8 @@ class LoungeScreen(BaseScreen):
         self.__reset()
 
     def on_enter(self):
-        self.__setup_player_dropdown()
+        Clock.schedule_once(lambda dt: self.__setup_player_dropdown(), 0.2)
+        self.current_player_slot = 0
 
     def on_next(self):
         self.manager.current = 'match'
@@ -487,6 +534,7 @@ class MatchScreen(BaseScreen):
     score = ListProperty([0, 0])
     state = StringProperty('')
     players = ListProperty([{}] * 4)
+    elo = NumericProperty(0.0)
 
     MAX_GOALS = 6
     MIN_SCORE_MOVE_PX = 100
@@ -498,14 +546,21 @@ class MatchScreen(BaseScreen):
         self.state = ''
         self.score_touch = None
         self.start_time = 0.0
+        self.submit_success = None
+        self.thread = None
+        self.elo = 0.0
 
+    def __set_submit_icon(self, icon):
+        self.ids.btnSubmit.icon = icon
+        
     def on_enter(self):
         self.__reset()
         self.state = 'running'
+        
         self.start_time = time.time()
         global game_data
         self.players = game_data.get_players()
-
+        self.__set_submit_icon(icons.cloud_upload)
         Clock.schedule_interval(self.__update_match_timer, 0.5)
         SoundManager.play(Trigger.GAME_START)
 
@@ -610,14 +665,34 @@ class MatchScreen(BaseScreen):
         
     def submit_score(self):
         self.state = 'submitting'
-        WaitingOverlay(self, self.__submit_score_thread, "Daten werden gespeichert")
+        self.ids.btnSubmit.blocking = True
+        self.thread = threading.Thread(target=self.__submit_score_thread)
+        self.thread.start()
+        Clock.schedule_once(self.__check_thread, 0)
 
+    def __check_thread(self, dt):
+        if self.thread.is_alive():
+            # still working...
+            Clock.schedule_once(self.__check_thread, 0.25)
+        else:
+            # finished!
+            self.ids.btnSubmit.reset_icon_when_done = False
+            self.ids.btnSubmit.blocking = False
+            if self.submit_success:
+                self.state = 'submit_success'
+                self.__set_submit_icon(icons.check)
+                Clock.schedule_once(lambda dt: self.show_elo(), 1.0)
+
+            else:
+                self.state = 'submit_failed'
+                self.__set_submit_icon(icons.remove)
+
+    def show_elo(self):
+        self.state = 'elo'
+                
     def __submit_score_thread(self):
         # submit score to remote server
-        if ServerCom.submit_score(self.players, self.score[0], self.score[1]):
-            self.state = 'submit_success'
-        else:
-            self.state = 'submit_failed'
+        (self.submit_success, self.elo) = ServerCom.submit_score(self.players, self.score)
         
 
 class ScoreTrackerApp(App):

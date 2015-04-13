@@ -1,11 +1,12 @@
 #:import SoundManager soundmanager.SoundManager
 #:import Trigger soundmanager.Trigger
 #:import settings settings
+#:import icons icons
 #:import rgba kivy.utils.get_color_from_hex
 #:import Factory kivy.factory.Factory
 
 #:set color_dark_100    (0.000, 0.020, 0.000, 1.000) # rgba('000500FF')
-#:set color_dark_80     (0.000, 0.020, 0.000, 0.800) # rgba('000500CC')
+#:set color_dark_95     (0.000, 0.020, 0.000, 0.950) # rgba('000500F3')
 #:set color_white_100   (1.000, 1.000, 1.000, 1.000) # rgba('FFFFFFFF')
 #:set color_white_80    (1.000, 1.000, 1.000, 0.800) # rgba('FFFFFFCC')
 #:set color_white_2     (1.000, 1.000, 1.000, 0.020) # rgba('FFFFFF05')
@@ -15,22 +16,6 @@
 #:set color_red_12      (1.000, 0.000, 0.000, 0.188) # rgba('FF000030')
 #:set color_blue_12     (0.000, 0.000, 1.000, 0.188) # rgba('0000FF30')
 #:set color_blueish_90 (0.187, 0.637, 0.875, 0.900) # rgba('30A3E0E6')
-
-#:set icon_attacker       u'\uF0E7'
-#:set icon_defender       u'\uF132'
-#:set icon_back           u'\uF053'
-#:set icon_next           u'\uF054'
-#:set icon_refresh        u'\uF021'
-#:set icon_power          u'\uF011'
-#:set icon_wrench         u'\uF0AD'
-#:set icon_wifi           u'\uF1EB'
-#:set icon_football       u'\uF1E3'
-#:set icon_rocket         u'\uF135'
-#:set icon_cloud_download u'\uF0ED'
-#:set icon_cloud_upload   u'\uF0EE'
-#:set icon_check          u'\uF00C'
-#:set icon_remove         u'\uF00D'
-#:set icon_plug           u'\uF1E6'
 
 <Label>:
     font_name: settings.KIVY_DEFAULT_FONT
@@ -49,12 +34,9 @@
 			rgba: color_white_100
 
 
-<ButtonSound@ButtonBehavior>:
+<ButtonSound>:
 	sound:
 	on_press: SoundManager.play(self.sound)
-
-
-<SoundButton@Button+ButtonSound>:
 
 
 <StandardButton@SoundButton>:
@@ -109,26 +91,26 @@
 			spacing: 30
 			MenuButton:
 				menuText: 'Einstellungen'
-				menuIcon: icon_wrench
+				menuIcon: icons.wrench
 				on_press: root.manager.current = 'settings'
 			MenuButton:
 				menuText: 'RFID Setup'
-				menuIcon: icon_wifi
+				menuIcon: icons.wifi
 				on_press: root.manager.current = 'rfid-setup'
 			MenuButton:
 				menuText: 'Neues Spiel'
-				menuIcon: icon_rocket
+				menuIcon: icons.rocket
 				on_press: root.manager.current = 'lounge'
 			MenuButton:
 				menuText: 'Aus'
-				menuIcon: icon_power
+				menuIcon: icons.power
 				sound: Trigger.EXIT
 				on_press: root.shutdown()
 
 		StackLayout:
 			canvas.before:
 				Color:
-					rgba: color_dark_80
+					rgba: color_dark_95
 				Rectangle:
 					pos:  self.pos
 					size: self.size
@@ -137,7 +119,7 @@
 			orientation: 'lr-tb'
 			padding: 13
 			IconLabel:
-				text: icon_plug
+				text: icons.plug
 				font_size: 25
 				color: color_white_100
 				width: 60
@@ -150,9 +132,8 @@
 				text_size: self.size
 				width: 300
 
-<IconButton@SoundButton>:
+<IconButton>:
 	iconLeft: True
-	icon: ''
 	iconSize: 25
 	iconRatio: 0.3
 	iconText: ''
@@ -171,6 +152,14 @@
 		orientation: 'lr-tb' if root.iconLeft else 'rl-tb'
 		padding: 10
 		IconLabel:
+			canvas.before:
+				PushMatrix
+				Rotate:
+					angle: root.icon_angle
+					axis: 0, 0, 1
+					origin: self.center
+			canvas.after:
+				PopMatrix
 			text: root.icon
 			font_size: root.iconSize
 			color: color_white_100
@@ -209,7 +198,7 @@
 	orientation: 'horizontal'
 	IconButton:
 		iconLeft: True
-		icon: icon_back
+		icon: icons.back
 		iconSize: 30
 		iconText: u'Zurück'
 		sound: Trigger.BACK
@@ -229,7 +218,7 @@
 		size_hint_x: 0.175
 		IconButton:
 			iconLeft: False
-			icon: icon_next
+			icon: icons.next
 			iconSize: 30
 			iconText: 'Weiter'
 			disabled: not root.isNextEnabled
@@ -263,6 +252,7 @@
 	btnPlayer: btnPlayer
 	btnAccept: btnAccept
 	btnClear: btnClear
+	btnUpdate: btnUpdate
 
 	SubPageLayout:
 		TopBar:
@@ -270,7 +260,7 @@
 		BoxLayout:
 			canvas.before:
 				Color:
-					rgba: color_dark_80
+					rgba: color_dark_95
 				Rectangle:
 					pos: self.pos
 					size: self.size
@@ -290,7 +280,8 @@
 					markup: True
 
 				IconButton:
-					icon: icon_cloud_download
+					id: btnUpdate
+					icon: icons.cloud_download
 					iconText: 'aktualisieren'
 					iconSize: 25
 					on_press: root.update_players_list()
@@ -301,7 +292,7 @@
 				spacing: 10
 				IconLabel:
 					id: iconRfid
-					text: icon_wifi
+					text: icons.wifi
 					font_size: 100
 					color: color_orange_100 if root.teaching else color_blueish_90
 					size_hint_x: 0.2
@@ -342,13 +333,13 @@
 					size_hint_x: 0.1
 					IconButton:
 						id: btnAccept
-						icon: icon_check
+						icon: icons.check
 						iconSize: 40
 						on_press: root.add_entry()
 						disabled: True
 					IconButton:
 						id: btnClear
-						icon: icon_remove
+						icon: icons.remove
 						iconSize: 40
 						on_press: root.confirm_remove()
 						disabled: True
@@ -361,7 +352,7 @@
 		GridLayout:
 			canvas.before:
 				Color:
-					rgba: color_dark_80
+					rgba: color_dark_95
 				Rectangle:
 					pos: self.pos
 					size: self.size
@@ -386,7 +377,7 @@
 		orientation: 'vertical'
 		padding: 0, 150
 		IconLabel:
-			text: icon_refresh
+			text: icons.refresh
 			font_size: '80sp'
 			color: color_white_100
 			canvas.before:
@@ -488,7 +479,7 @@
         GridLayout:
     		canvas.before:
     			Color:
-    				rgba: color_dark_80
+    				rgba: color_dark_95
     			Rectangle:
     				pos: self.pos
     				size: self.size
@@ -528,7 +519,7 @@
                 active: root.current_player_slot == self.myid
 				playerPos: 'Angreifer'
 				playerName: root.players[self.myid].get('name', '---')
-                iconText: icon_attacker
+                iconText: icons.attacker
 				iconLeft: True
 				on_release: root.click_player_slot(self.myid)
 			PlayerSlot:
@@ -537,7 +528,7 @@
                 active: root.current_player_slot == self.myid
 				playerPos: 'Angreifer'
 				playerName: root.players[self.myid].get('name', '---')
-                iconText: icon_attacker
+                iconText: icons.attacker
 				iconLeft: False
 				on_release: root.click_player_slot(self.myid)
 			PlayerSlot:
@@ -546,7 +537,7 @@
                 active: root.current_player_slot == self.myid
 				playerPos: 'Verteidiger'
 				playerName: root.players[self.myid].get('name', '---')
-                iconText: icon_defender
+                iconText: icons.defender
 				iconLeft: True
 				on_release: root.click_player_slot(self.myid)
 			PlayerSlot:
@@ -555,7 +546,7 @@
                 active: root.current_player_slot == self.myid
 				playerPos: 'Verteidiger'
 				playerName: root.players[self.myid].get('name', '---')
-                iconText: icon_defender
+                iconText: icons.defender
 				iconLeft: False
 				on_release: root.click_player_slot(self.myid)
 
@@ -576,6 +567,7 @@
 
 
 <MatchScreen>:
+	btnSubmit: btnSubmit
 	on_touch_down: root.handle_score_touch_down(args[1])
 	on_touch_move: root.handle_score_touch_move(args[1])
 	on_touch_up:   root.handle_score_touch_up(args[1])
@@ -588,7 +580,7 @@
 			padding: 20, 20
 			canvas.before:
 				Color:
-					rgba: color_dark_80
+					rgba: color_dark_95
 				Rectangle:
 					pos: self.pos
 					size: self.size
@@ -640,39 +632,61 @@
 				# players 1, 2
 				BoxLayout:
 					orientation: 'vertical'
-					size_hint_x: 0.425
+					size_hint_x: 0.35
 					MatchPlayerLabel:
 						playerName: root.players[0].get('name', '---')
-						iconText: icon_attacker
+						iconText: icons.attacker
 						iconLeft: True
 					MatchPlayerLabel:
 						playerName: root.players[1].get('name', '---')
-						iconText: icon_defender
+						iconText: icons.defender
 						iconLeft: True
-				# submit button
-				IconButton:
-					size_hint_x: 0.175
-					icon: icon_cloud_upload if root.state in ['finished', 'submitting'] else icon_check if root.state == 'submit_success' else icon_remove if root.state == 'submit_failed' else ''
-					iconColor: (0, 1, 0, 0.8) if root.state == 'submit_success' else (1, 0, 0, 0.8) if root.state == 'submit_failed' else (1, 0.8, 0.8, 0.8)
-					iconColorDisabled: (0, 1, 0, 0.8) if root.state == 'submit_success' else (1, 0, 0, 0.8) if root.state == 'submit_failed' else (0.8, 0.8, 0.8, 0.8)
-					iconLeft: True
-					iconSize: 45
-					iconText: ''
-					on_press: root.submit_score()
-					opacity: 0.0 if (root.state in ['', 'running']) else 1.0
-					disabled: root.state in ['', 'running', 'submitting', 'submit_success']
+				# submit button / ELO result
+				AnchorLayout:
+					size_hint_x: 0.3
+					IconButton:
+						id: btnSubmit
+						iconColor: (0, 1, 0, 0.8) if root.state == 'submit_success' else (1, 0, 0, 0.8) if root.state == 'submit_failed' else (1, 0.8, 0.8, 0.8)
+						iconColorDisabled: (0, 1, 0, 0.8) if root.state == 'submit_success' else (1, 0, 0, 0.8) if root.state == 'submit_failed' else (0.8, 0.8, 0.8, 0.8)
+						iconLeft: True
+						iconSize: 45
+						iconText: ''
+						on_press: root.submit_score()
+						opacity: 0.0 if (root.state in ['', 'running', 'elo']) else 1.0
+						disabled: root.state in ['', 'running', 'submitting', 'submit_success', 'elo']
+					BoxLayout:
+						ResultArrow:
+                            won: root.elo > 0.0
+							opacity: 1.0 if (root.state == 'elo') else 0.0
+						Label:
+							text: "{:.1f}".format(abs(root.elo))
+                            font_size: 80
+                            bold: True
+							opacity: 1.0 if (root.state == 'elo') else 0.0
+						ResultArrow:
+                            won: root.elo < 0.0
+							opacity: 1.0 if (root.state == 'elo') else 0.0
+
 				# players 3, 4
 				BoxLayout:
 					orientation: 'vertical'
-					size_hint_x: 0.4
+					size_hint_x: 0.35
 					MatchPlayerLabel:
 						playerName: root.players[2].get('name', '---')
-						iconText: icon_attacker
+						iconText: icons.attacker
 						iconLeft: False
 					MatchPlayerLabel:
 						playerName: root.players[3].get('name', '---')
-						iconText: icon_defender
+						iconText: icons.defender
 						iconLeft: False
+
+
+<ResultArrow@IconLabel>:
+	won: True
+    text: icons.caret_up if root.won else icons.caret_down
+    font_size: 60
+    color: (0, 1, 0, 1) if root.won else (1, 0, 0, 1)
+
 
 <STModalView>:
 	orientation: 'vertical'
@@ -702,13 +716,13 @@
 		spacing: 10
 		size_hint_y: 0.3
 		IconButton:
-			icon: icon_check
+			icon: icons.check
 			iconLeft: True
 			iconSize: 30
 			iconText: 'Ja'
 			on_press: root.on_yes()
 		IconButton:
-			icon: icon_remove
+			icon: icons.remove
 			iconLeft: False
 			iconSize: 30
 			iconText: 'Nein'
