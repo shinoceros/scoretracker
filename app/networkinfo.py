@@ -1,15 +1,12 @@
-import socket
-import fcntl
-import struct
+import subprocess
 
-def get_ip_address(ifname):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        addr = socket.inet_ntoa(fcntl.ioctl(
-            s.fileno(),
-            0x8915,  # SIOCGIFADDR
-            struct.pack('256s', ifname[:15])
-        )[20:24])
-    except IOError:
-        addr = None
-    return addr
+def get_network_info():
+    cmd = 'wpa_cli status | egrep "(wpa_state|id_str|ip_address)"'
+    proc = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+    entries = {}
+    for line in iter(proc.stdout.readline, ''):
+        line = line.strip()
+        if '=' in line:
+            (k, v) = line.split('=')
+            entries[k] = v
+    return entries

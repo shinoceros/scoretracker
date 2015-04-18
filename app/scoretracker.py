@@ -173,25 +173,33 @@ class BaseScreen(Screen, OnPropertyAnimationMixin):
 class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
 
     fadeopacity = NumericProperty(1.0)
-    ip_addr = StringProperty()
+    network_str = StringProperty()
 
     def __init__(self, **kwargs):
         super(MenuScreen, self).__init__(**kwargs)
         # initial fade in
         self.fadeopacity = 0.0
-        Clock.schedule_once(self.fetch_ip, 0.0)
 
-    def fetch_ip(self, dt):
-        interfaces = ['eth0', 'wlan0']
-        for interface in interfaces:
-            addr = networkinfo.get_ip_address(interface)
-            if addr is not None:
-                break
-        if addr is None:
-            self.ip_addr = 'not connected'
+    def on_enter(self):
+        Clock.schedule_interval(self.fetch_network_info, 1.0)
+
+    def on_leave(self):
+        Clock.unschedule(self.fetch_network_info)
+
+    def fetch_network_info(self, dt):
+        nwinfo = networkinfo.get_network_info()
+        state = nwinfo.get('wpa_state', 'DISCONNECTED')
+        ip_address = nwinfo.get('ip_address', '')
+        id_str = nwinfo.get('id_str', '')
+
+        if state == 'SCANNING':
+            self.network_str = 'scanning for networks...'
+        elif state == 'ASSOCIATED' or (state == 'COMPLETED' and ip_address == ''):
+            self.network_str = 'connected, fetching IP...'
+        elif state == 'COMPLETED' and ip_address != '':
+            self.network_str = 'connected: {} ({})'.format(ip_address, id_str)
         else:
-            self.ip_addr = "{} ({})".format(addr, interface)
-        Clock.schedule_once(self.fetch_ip, 5.0)
+            self.network_str = 'not connected'
         
     def shutdown(self):
         # final fade out
