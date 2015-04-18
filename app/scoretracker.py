@@ -28,6 +28,7 @@ from random import randint
 import threading
 import time
 import os
+import random
 
 from hardwarelistener import HardwareListener
 from soundmanager import SoundManager, Trigger
@@ -336,7 +337,7 @@ class RfidSetupScreen(BaseScreen):
     def confirm_remove(self):
         # ask for confirmation if RFID map entry deletion is requested
         view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
-        content = Factory.STModalView(title='RFID-Eintrag löschen', text='Soll der RFID-Eintrag wirklich gelöscht werden?', callback=self.remove_entry)
+        content = Factory.STModalView(title='RFID-Eintrag löschen', text='Soll der RFID-Eintrag wirklich gelöscht werden?', cb_yes=self.remove_entry)
         view.add_widget(content)
         view.open()
 
@@ -523,18 +524,22 @@ class STModalView(BoxLayout):
     title = StringProperty("")
     text = StringProperty("")
 
-    def __init__(self, title, text, callback, **kwargs):
+    def __init__(self, title, text, cb_yes = None, cb_no = None, **kwargs):
         super(STModalView, self).__init__(**kwargs)
         self.title = title
         self.text = text
-        self.callback = callback
+        self.cb_yes = cb_yes
+        self.cb_no = cb_no
 
     def on_yes(self):
         self.parent.dismiss()
-        self.callback()
+        if self.cb_yes:
+            self.cb_yes()
 
     def on_no(self):
         self.parent.dismiss()
+        if self.cb_no:
+            self.cb_no()
 
 
 class MatchScreen(BaseScreen):
@@ -543,6 +548,7 @@ class MatchScreen(BaseScreen):
     state = StringProperty('')
     players = ListProperty([{}] * 4)
     elo = NumericProperty(0.0)
+    kickoff_team = NumericProperty(-1)
 
     MAX_GOALS = 6
     MIN_SCORE_MOVE_PX = 100
@@ -557,6 +563,7 @@ class MatchScreen(BaseScreen):
         self.submit_success = None
         self.thread = None
         self.elo = 0.0
+        self.kickoff_team = -1
 
     def __set_submit_icon(self, icon):
         self.ids.btnSubmit.icon = icon
@@ -570,7 +577,18 @@ class MatchScreen(BaseScreen):
         self.players = game_data.get_players()
         self.__set_submit_icon(icons.cloud_upload)
         Clock.schedule_interval(self.__update_match_timer, 0.5)
-        SoundManager.play(Trigger.GAME_START)
+
+        # randomly define kick off team
+        self.kickoff_team = random.randint(0, 1)
+
+        Clock.schedule_interval(self.__highlight_kickoff, 1.5)
+
+        SoundManager.play(Trigger.GAME_START, self.players[self.kickoff_team * 2])
+
+    def __highlight_kickoff(self, dt):
+        # fetch kickoff player label
+        obj = self.ids['player{}'.format(self.kickoff_team * 2)].ids['icon']
+        HighlightOverlay(orig_obj=obj, parent=self, duration=2.0).animate(font_size=100, color=(1, 1, 1, 0))
 
     def on_leave(self):
         self.__reset()
@@ -578,26 +596,34 @@ class MatchScreen(BaseScreen):
     def on_back(self):
         # game still running, ask for user confirmation
         if self.state == 'running':
+            SoundManager.play(Trigger.GAME_PAUSE)
             view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
-            content = Factory.STModalView(title='Spiel abbrechen', text='Das Spiel ist noch nicht beendet.\nWirklich abbrechen?', callback=self.cancel_match)
+            content = Factory.STModalView(title='Spiel abbrechen', text='Das Spiel ist noch nicht beendet.\nWirklich abbrechen?', cb_yes=self.cancel_match, cb_no=self.resume_match)
             view.add_widget(content)
             view.open()
         # game not running anymore
         elif self.state in ['finished', 'submit_failed']:
             view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
-            content = Factory.STModalView(title='Spiel abbrechen', text='Das Ergebnis wurde noch nicht hochgeladen.\nWirklich abbrechen?', callback=self.cancel_match)
+            content = Factory.STModalView(title='Spiel abbrechen', text='Das Ergebnis wurde noch nicht hochgeladen.\nWirklich abbrechen?', cb_yes=self.cancel_match)
             view.add_widget(content)
             view.open()
         else:
             self.manager.current = 'lounge'
 
     def on_score(self, instance, value):
+        # deactivate kickoff highlighting 
+        if self.kickoff_team in [0, 1]:
+            self.kickoff_team = -1
+            Clock.unschedule(self.__highlight_kickoff)
+        # check max goal
         if value[0] >= self.MAX_GOALS or value[1] >= self.MAX_GOALS:
             self.state = 'finished'
-
             SoundManager.play(Trigger.GAME_END)
+        # manual swiping can resume a finished match
         else:
-            self.state = 'running'
+            if self.state == 'finished':
+                self.state = 'running'
+                SoundManager.play(Trigger.GAME_RESUME)
 
     def __reset(self):
         self.score = [0, 0]
@@ -626,6 +652,8 @@ class MatchScreen(BaseScreen):
 
     # manual score editing methods
     def handle_score_touch_down(self, event):
+        if self.state not in ['running', 'finished']:
+            return
         for i in range(0, 2):
             obj = self.score_objects[i]
             collide = obj.collide_point(event.pos[0], event.pos[1])
@@ -633,6 +661,8 @@ class MatchScreen(BaseScreen):
                 self.score_touch = {'id': i, 'startPos': event.pos[1]}
 
     def handle_score_touch_move(self, event):
+        if self.state not in ['running', 'finished']:
+            return
         if self.score_touch:
             obj = self.score_objects[self.score_touch['id']]
             ratio = min(1.0, abs(event.pos[1] - self.score_touch['startPos']) / self.MIN_SCORE_MOVE_PX)
@@ -640,14 +670,18 @@ class MatchScreen(BaseScreen):
             obj.color = color
 
     def handle_score_touch_up(self, event):
+        if self.state not in ['running', 'finished']:
+            return
         if self.score_touch:
             score_id = self.score_touch['id']
             dist = event.pos[1] - self.score_touch['startPos']
             if abs(dist) > self.MIN_SCORE_MOVE_PX:
                 score_diff = 1 if dist > 0 else -1;
-                self.score[score_id] = max(0, min(self.score[score_id] + score_diff, self.MAX_GOALS))
-                HighlightOverlay(orig_obj=self.score_objects[score_id], parent=self).animate(font_size=500, color=(1, 1, 1, 0))
-                SoundManager.play(Trigger.SWIPE)
+                # do not allow 6:6 swiping!
+                if score_diff == 1 and self.MAX_GOALS not in self.score:
+                    self.score[score_id] = max(0, min(self.score[score_id] + score_diff, self.MAX_GOALS))
+                    HighlightOverlay(orig_obj=self.score_objects[score_id], parent=self).animate(font_size=500, color=(1, 1, 1, 0))
+                    SoundManager.play(Trigger.SWIPE)
             self.score_objects[score_id].color = (1, 1, 1, 1)
         self.score_touch = None
 
@@ -670,7 +704,10 @@ class MatchScreen(BaseScreen):
     def cancel_match(self):
         SoundManager.play(Trigger.MENU)
         self.manager.current = 'lounge'
-        
+
+    def resume_match(self):
+        SoundManager.play(Trigger.GAME_RESUME)
+
     def submit_score(self):
         self.state = 'submitting'
         self.ids.btnSubmit.blocking = True

@@ -24,9 +24,10 @@ class SoundIssuer(object):
     def __runExternalCmd(self, path, volume, loop, delay):
         if loop:
             self.stop_loop()
-            cmd = "mpg321 -q --loop 0 -g {} \"{}\"".format(volume, path)
+            loop_stmt = '1E6'
         else:
-            cmd = "mpg321 -q -g {} \"{}\"".format(volume, path)
+            loop_stmt = '0'
+        cmd = "play -q -V1 --volume {0} \"{1}\" repeat {2} delay {3} {3}".format(volume, path, loop_stmt, delay)
         p = subprocess.Popen(shlex.split(cmd))
         if loop:
             self.loop_obj = p

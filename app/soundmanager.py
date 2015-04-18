@@ -16,15 +16,17 @@ class Trigger(Enum):
     MENU = 0
     GAME_START = 1
     GAME_END = 2
-    GOAL = 3 # data: goals1, goals2
-    DENIED = 4
-    RFID = 5
-    PLAYER_JOINED = 6 # data: player dict
-    BUTTON = 7
-    BACK = 8
-    EXIT = 9
-    SWIPE = 10
-    PLAYER_SELECTED = 11 # data: player dict
+    GAME_PAUSE = 3
+    GAME_RESUME = 4
+    GOAL = 5 # data: goals1, goals2
+    DENIED = 6
+    RFID = 7
+    PLAYER_JOINED = 8 # data: player dict
+    BUTTON = 9
+    BACK = 10
+    EXIT = 11
+    SWIPE = 12
+    PLAYER_SELECTED = 13 # data: player dict
 
 class SoundManagerBase(object):
 
@@ -37,16 +39,18 @@ class SoundManagerBase(object):
         self.stopped = False
 
         self.map_sound_files = {
-            'menu':    { 'type': 'random', 'path': 'menu/*' },
-            'whistle': { 'type': 'fixed', 'path': 'whistle_medium' },
-            'goal':    { 'type': 'random', 'path': 'goal/*' },
-            'stadium': { 'type': 'random', 'path': 'stadium/*' },
-            'denied':  { 'type': 'fixed', 'path': 'chime_down2' },
-            'button':  { 'type': 'fixed', 'path': 'chime_medium1' },
-            'back':    { 'type': 'fixed', 'path': 'chime_low1' },
-            'exit':    { 'type': 'fixed', 'path': 'chime_down3' },
-            'rfid':    { 'type': 'fixed', 'path': 'chime_up3' },
-            'player':  { 'type': 'indexed', 'path': 'players/*' }
+            'menu':    { 'type': 'random', 'path': 'menu/*', 'volume': 0.7 },
+            'whistle': { 'type': 'fixed', 'path': 'whistle_medium', 'volume': 0.8  },
+            'kickoff': { 'type': 'fixed', 'path': 'kickoff', 'volume': 1.0  },
+            'goal':    { 'type': 'random', 'path': 'goal/*', 'volume': 1.0  },
+            'stadium': { 'type': 'random', 'path': 'stadium/*', 'volume': 0.5 },
+            'denied':  { 'type': 'fixed', 'path': 'chime_down2', 'volume': 1.0 },
+            'button':  { 'type': 'fixed', 'path': 'chime_medium1', 'volume': 1.0 },
+            'back':    { 'type': 'fixed', 'path': 'chime_low1', 'volume': 1.0 },
+            'exit':    { 'type': 'fixed', 'path': 'chime_down3', 'volume': 1.0 },
+            'rfid':    { 'type': 'fixed', 'path': 'chime_up3', 'volume': 1.0 },
+            'scratch': { 'type': 'fixed', 'path': 'scratch', 'volume': 1.0 },
+            'player':  { 'type': 'indexed', 'path': 'players/*', 'volume': 1.0 }
         }
 
         # read sound files
@@ -63,29 +67,56 @@ class SoundManagerBase(object):
                 self.map_sound_files[key]['files'] = deque(files)
 
         self.map_trigger = {
-            Trigger.MENU:           [{ 'sound': 'menu',    'volume': 20,  'loop': True , 'delay': 0.0 }],
+            Trigger.MENU:           [
+                                        { 'sound': 'menu', 'loop': True }
+                                    ],
             Trigger.GAME_START:     [
-                                        { 'sound': 'whistle', 'volume': 100, 'loop': False, 'delay': 0.0 },
-                                        { 'sound': 'stadium', 'volume': 50, 'loop': True, 'delay': 0.0 }
+                                        { 'sound': 'kickoff' },
+                                        { 'sound': 'player', 'delay': 0.6 },
+                                        { 'sound': 'whistle', 'delay': 1.5 },
+                                        { 'sound': 'stadium', 'loop': True, 'delay': 1.0 }
                                     ],
             Trigger.GAME_END:       [
-                                        { 'sound': 'whistle', 'volume': 100, 'loop': False, 'delay': 0.0 },
-                                        { 'sound': 'menu',    'volume': 50,  'loop': True , 'delay': 0.0 }
+                                        { 'sound': 'whistle' },
+                                        { 'sound': 'menu', 'loop': True }
                                     ],
-            Trigger.GOAL:           [{ 'sound': 'goal',    'volume': 100, 'loop': False, 'delay': 0.0 }],
-            Trigger.DENIED:         [{ 'sound': 'denied',  'volume': 100, 'loop': False, 'delay': 0.0 }],
-            Trigger.RFID:           [{ 'sound': 'rfid',    'volume': 100, 'loop': False, 'delay': 0.0 }],
-            Trigger.BUTTON:         [{ 'sound': 'button',  'volume': 100, 'loop': False, 'delay': 0.0 }],
-            Trigger.BACK:           [{ 'sound': 'back',    'volume': 100, 'loop': False, 'delay': 0.0 }],
+            Trigger.GAME_PAUSE:     [
+                                        { 'stoploop': True },
+                                        { 'sound': 'scratch' }
+                                    ],
+            Trigger.GAME_RESUME:    [
+                                        { 'sound': 'whistle' },
+                                        { 'sound': 'stadium', 'loop': True }
+                                    ],
+            Trigger.GOAL:           [
+                                        { 'sound': 'goal' }
+                                    ],
+            Trigger.DENIED:         [
+                                        { 'sound': 'denied' }
+                                    ],
+            Trigger.RFID:           [
+                                        { 'sound': 'rfid' }
+                                    ],
+            Trigger.BUTTON:         [
+                                        { 'sound': 'button' }
+                                    ],
+            Trigger.BACK:           [
+                                        { 'sound': 'back' }
+                                    ],
             Trigger.EXIT:           [
                                         { 'stoploop': True },
-                                        { 'sound': 'exit',    'volume': 100, 'loop': False, 'delay': 0.0 }],
-            Trigger.SWIPE:          [{ 'sound': 'button',  'volume': 100, 'loop': False, 'delay': 0.0 }],
-            Trigger.PLAYER_JOINED:  [
-                                        { 'sound': 'rfid',    'volume': 100, 'loop': False, 'delay': 0.0 },
-                                        { 'sound': 'player',  'volume': 100, 'loop': False, 'delay': 0.5 }
+                                        { 'sound': 'exit' }
                                     ],
-            Trigger.PLAYER_SELECTED:  [{ 'sound': 'player',  'volume': 100, 'loop': False, 'delay': 0.0 }]
+            Trigger.SWIPE:          [
+                                        { 'sound': 'button' }
+                                    ],
+            Trigger.PLAYER_JOINED:  [
+                                        { 'sound': 'rfid' },
+                                        { 'sound': 'player', 'delay': 0.5 }
+                                    ],
+            Trigger.PLAYER_SELECTED:  [
+                                        { 'sound': 'player' }
+                                    ]
         }
 
         self.thread = Thread(target=self.__thread)
@@ -97,6 +128,9 @@ class SoundManagerBase(object):
             for command in commands:
                 if 'sound' in command:
                     sound_conf = self.map_sound_files[command['sound']]
+                    volume = sound_conf.get('volume', 1.0)
+                    loop = command.get('loop', False)
+                    delay = command.get('delay', 0.0)
                     path = ''
 
                     if sound_conf['type'] == 'random':
@@ -112,7 +146,7 @@ class SoundManagerBase(object):
                             path = sound_conf['map'][param['id']]
 
                     if path != '':
-                        self.si.play(path, command['volume'], command['loop'], command['delay'])
+                        self.si.play(path, volume, loop, delay)
                 elif 'stoploop' in command:
                     self.si.stop_loop()
 
@@ -127,8 +161,9 @@ class SoundManagerBase(object):
                 print path
                 if not os.path.isfile(path):
                     # create TTS file
-                    cmd = "espeak -s110 -v%s \"%s\" --stdout | avconv -i - -ar 44100 " \
-                    "-ac 2 -ab 192k -f mp3 \"%s\"" % ("mb-de7", player['name'], path)
+                    cmd = "espeak -s110 -v{} \"{}\" --stdout | " \
+                    "sox --norm --type wav - --type mp3 --rate 44100 --channels 2 " \
+                    "--compression 192 \"{}\"".format("mb-de7", player['name'], path)
                     subprocess.call(cmd, shell=True)
                     Logger.info("ScoreTracker: TTS file generated: %s" % path)
                     self.map_sound_files['player']['map'][id] = path

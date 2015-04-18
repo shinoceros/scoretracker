@@ -443,9 +443,11 @@
 				size_hint_y: 0.3
 
 <MatchPlayerLabel@StackLayout>:
+    icon: icon
 	playerName: ''
 	iconText: ''
 	iconLeft: True
+    highlight: False
 
 	StackLayout:
 		pos: self.parent.pos
@@ -453,15 +455,16 @@
 		orientation: 'lr-tb' if root.iconLeft else 'rl-tb'
 		padding: 10
 		# TODO: winner highlight
-#		canvas:
-#			Color:
-#				rgba: color_orange_12 if root.active else color_white_2
-#			Rectangle:
-#				pos: self.pos
-#				size: self.size
-#			Color:
-#				rgba: color_white_100
+		canvas:
+			Color:
+				rgba: color_orange_12 if root.highlight else (0, 0, 0, 0)
+			Rectangle:
+				pos: self.pos
+				size: self.size
+			Color:
+				rgba: color_white_100
 		IconLabel:
+            id: icon
 			size_hint_x: 0.3
 			text: root.iconText
 			font_size: 30
@@ -568,6 +571,11 @@
 
 <MatchScreen>:
 	btnSubmit: btnSubmit
+    player0: player0
+    player1: player1
+    player2: player2
+    player3: player3
+
 	on_touch_down: root.handle_score_touch_down(args[1])
 	on_touch_move: root.handle_score_touch_move(args[1])
 	on_touch_up:   root.handle_score_touch_up(args[1])
@@ -634,10 +642,13 @@
 					orientation: 'vertical'
 					size_hint_x: 0.35
 					MatchPlayerLabel:
+                        id: player0
 						playerName: root.players[0].get('name', '---')
 						iconText: icons.attacker
 						iconLeft: True
+                        highlight: root.kickoff_team == 0
 					MatchPlayerLabel:
+                        id: player1
 						playerName: root.players[1].get('name', '---')
 						iconText: icons.defender
 						iconLeft: True
@@ -672,10 +683,13 @@
 					orientation: 'vertical'
 					size_hint_x: 0.35
 					MatchPlayerLabel:
+                        id: player2
 						playerName: root.players[2].get('name', '---')
 						iconText: icons.attacker
 						iconLeft: False
+                        highlight: root.kickoff_team == 1
 					MatchPlayerLabel:
+                        id: player3
 						playerName: root.players[3].get('name', '---')
 						iconText: icons.defender
 						iconLeft: False
