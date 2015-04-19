@@ -677,11 +677,17 @@ class MatchScreen(BaseScreen):
             dist = event.pos[1] - self.score_touch['startPos']
             if abs(dist) > self.MIN_SCORE_MOVE_PX:
                 score_diff = 1 if dist > 0 else -1;
-                # do not allow 6:6 swiping!
-                if score_diff == 1 and self.MAX_GOALS not in self.score:
-                    self.score[score_id] = max(0, min(self.score[score_id] + score_diff, self.MAX_GOALS))
+                # swipe down: only if not 0 and if opp score is not 6
+                allowed = (score_diff == -1 and self.score[score_id] > 0 and self.score[1 - score_id] != self.MAX_GOALS )
+                # swipe up: only if no one scored 6 goals
+                allowed |= (score_diff == 1 and self.MAX_GOALS not in self.score)
+                if allowed:
+                    self.score[score_id] += score_diff
                     HighlightOverlay(orig_obj=self.score_objects[score_id], parent=self).animate(font_size=500, color=(1, 1, 1, 0))
-                    SoundManager.play(Trigger.SWIPE)
+                    if score_diff == 1:
+                        SoundManager.play(Trigger.GOAL)
+                    else:
+                        SoundManager.play(Trigger.OFFSIDE)
             self.score_objects[score_id].color = (1, 1, 1, 1)
         self.score_touch = None
 

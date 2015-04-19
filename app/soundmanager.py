@@ -25,7 +25,7 @@ class Trigger(Enum):
     BUTTON = 9
     BACK = 10
     EXIT = 11
-    SWIPE = 12
+    OFFSIDE = 12
     PLAYER_SELECTED = 13 # data: player dict
 
 class SoundManagerBase(object):
@@ -40,9 +40,10 @@ class SoundManagerBase(object):
 
         self.map_sound_files = {
             'menu':    { 'type': 'random', 'path': 'menu/*', 'volume': 0.7 },
-            'whistle': { 'type': 'fixed', 'path': 'whistle_medium', 'volume': 0.8  },
-            'kickoff': { 'type': 'fixed', 'path': 'kickoff', 'volume': 1.0  },
-            'goal':    { 'type': 'random', 'path': 'goal/*', 'volume': 1.0  },
+            'whistle': { 'type': 'fixed', 'path': 'whistle_medium', 'volume': 0.8 },
+            'kickoff': { 'type': 'fixed', 'path': 'kickoff', 'volume': 1.0 },
+            'goal':    { 'type': 'random', 'path': 'goal/*', 'volume': 1.0 },
+            'offside': { 'type': 'fixed', 'path': 'offside', 'volume': 1.0 },
             'stadium': { 'type': 'random', 'path': 'stadium/*', 'volume': 0.5 },
             'denied':  { 'type': 'fixed', 'path': 'chime_down2', 'volume': 1.0 },
             'button':  { 'type': 'fixed', 'path': 'chime_medium1', 'volume': 1.0 },
@@ -107,8 +108,8 @@ class SoundManagerBase(object):
                                         { 'stoploop': True },
                                         { 'sound': 'exit' }
                                     ],
-            Trigger.SWIPE:          [
-                                        { 'sound': 'button' }
+            Trigger.OFFSIDE:        [
+                                        { 'sound': 'offside' }
                                     ],
             Trigger.PLAYER_JOINED:  [
                                         { 'sound': 'rfid' },
