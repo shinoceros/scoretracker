@@ -43,7 +43,7 @@ class SoundManagerBase(object):
             'whistle': { 'type': 'fixed', 'path': 'whistle_medium', 'volume': 0.8 },
             'kickoff': { 'type': 'fixed', 'path': 'kickoff', 'volume': 1.0 },
             'goal':    { 'type': 'random', 'path': 'goal/*', 'volume': 1.0 },
-            'offside': { 'type': 'fixed', 'path': 'offside', 'volume': 1.0 },
+            'offside': { 'type': 'random', 'path': 'offside/*', 'volume': 1.0 },
             'stadium': { 'type': 'random', 'path': 'stadium/*', 'volume': 0.5 },
             'denied':  { 'type': 'fixed', 'path': 'chime_down2', 'volume': 1.0 },
             'button':  { 'type': 'fixed', 'path': 'chime_medium1', 'volume': 1.0 },
