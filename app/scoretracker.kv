@@ -87,8 +87,8 @@
 
 		GridLayout:
 			cols: 3
-			padding: 30
-			spacing: 30
+			padding: 25
+			spacing: 25
 			MenuButton:
 				menuText: 'Einstellungen'
 				menuIcon: icons.wrench
@@ -235,8 +235,8 @@
 
 <SubPageLayout@BoxLayout>:
 	orientation: 'vertical'
-	spacing: 20
-	padding: 30
+	spacing: 10
+	padding: 25
 
 <PlayerButton>:
 	text: self.data.get('name', '???')
@@ -609,6 +609,7 @@
 					id: labelHome
 					text: str(root.score[0])
 					size_hint_x: 0.425
+                    padding: (0, 15)
 				ScoreLabel:
 					canvas.before:
 						Color:
@@ -619,7 +620,8 @@
 						Color:
 							rgba: color_white_100
 					text: ':'
-					size_hint_x: 0.175
+					size_hint_x: 0.15
+                    padding: (-15, 15)
 				ScoreLabel:
 					canvas.before:
 						Color:
@@ -631,7 +633,8 @@
 							rgba: color_white_100
 					id: labelAway
 					text: str(root.score[1])
-					size_hint_x: 0.4
+					size_hint_x: 0.425
+                    padding: (0, 15)
 
 			BoxLayout:
 				orientation: 'horizontal'
