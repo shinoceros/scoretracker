@@ -475,6 +475,55 @@
 			bold: True
 			size_hint_y: 0.7
 
+<SwitchPlayersButton@StandardButton>:
+	background_color: (0, 0, 0, 0.4)
+	background_normal: './assets/images/roundedbutton.png'
+	border: 20, 20, 20, 20
+	teamid:
+
+    AnchorLayout:
+        pos: self.parent.pos
+		size: self.parent.size
+        IconLabel:
+			canvas.before:
+				PushMatrix
+				Rotate:
+					angle: 90
+					axis: 0, 0, 1
+					origin: self.center
+			canvas.after:
+				PopMatrix
+    		text: icons.exchange
+    		font_size: 40
+    		color: color_white_100
+
+<TeamLabel@StackLayout>:
+    labelText: ''
+    labelColor: (0, 0, 0, 0)
+    iconLeft: True
+    teamid: 0
+
+    orientation: 'lr-tb' if root.iconLeft else 'rl-tb'
+	canvas.before:
+		Color:
+			rgba: root.labelColor
+		Rectangle:
+			pos: self.pos
+			size: self.size
+		Color:
+			rgba: color_white_100
+    padding: (20, 20)
+    # switch players button
+    SwitchPlayersButton:
+        on_press: root.parent.parent.parent.switch_players_of_team(root.teamid)
+        size_hint_x: 0.25
+   # team label
+    Label:
+        text: root.labelText
+		bold: True
+		font_size: 40
+        size_hint_x: 0.75
+
 <LoungeScreen>:
 	SubPageLayout:
 		TopBar:
@@ -491,31 +540,16 @@
             cols: 2
 			padding: 30
 			spacing: 10
-            Label:
-				canvas.before:
-					Color:
-						rgba: color_red_12
-					Rectangle:
-						pos: self.pos
-						size: self.size
-					Color:
-						rgba: color_white_100
-                text: 'Team 1'
-				bold: True
-				font_size: 30
-				size_hint_y: 0.15
-            Label:
-				canvas.before:
-					Color:
-						rgba: color_blue_12
-					Rectangle:
-						pos: self.pos
-						size: self.size
-					Color:
-						rgba: color_white_100
-                text: 'Team 2'
-				bold: True
-				font_size: 30
+            TeamLabel:
+                labelText: 'Team 1'
+                labelColor: color_red_12
+                iconLeft: True
+                teamid: 0
+            TeamLabel:
+                labelText: 'Team 2'
+                labelColor: color_blue_12
+                iconLeft: False
+                teamid: 1
 			PlayerSlot:
 				myid: 0
 				id: p0

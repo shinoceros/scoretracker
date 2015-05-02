@@ -27,6 +27,7 @@ class Trigger(Enum):
     EXIT = 11
     OFFSIDE = 12
     PLAYER_SELECTED = 13 # data: player dict
+    INTRO = 14
 
 class SoundManagerBase(object):
 
@@ -39,6 +40,7 @@ class SoundManagerBase(object):
         self.stopped = False
 
         self.map_sound_files = {
+            'intro':   { 'type': 'fixed', 'path': 'intro', 'volume': 0.7 },
             'menu':    { 'type': 'random', 'path': 'menu/*', 'volume': 0.7 },
             'whistle': { 'type': 'fixed', 'path': 'whistle_medium', 'volume': 0.8 },
             'kickoff': { 'type': 'fixed', 'path': 'kickoff', 'volume': 1.0 },
@@ -48,7 +50,7 @@ class SoundManagerBase(object):
             'denied':  { 'type': 'fixed', 'path': 'chime_down2', 'volume': 1.0 },
             'button':  { 'type': 'fixed', 'path': 'chime_medium1', 'volume': 1.0 },
             'back':    { 'type': 'fixed', 'path': 'chime_low1', 'volume': 1.0 },
-            'exit':    { 'type': 'fixed', 'path': 'chime_down3', 'volume': 1.0 },
+            'exit':    { 'type': 'random', 'path': 'shutdown/*', 'volume': 1.0 },
             'rfid':    { 'type': 'fixed', 'path': 'chime_up3', 'volume': 1.0 },
             'scratch': { 'type': 'fixed', 'path': 'scratch', 'volume': 1.0 },
             'player':  { 'type': 'indexed', 'path': 'players/*', 'volume': 1.0 }
@@ -68,6 +70,10 @@ class SoundManagerBase(object):
                 self.map_sound_files[key]['files'] = deque(files)
 
         self.map_trigger = {
+            Trigger.INTRO:          [
+                                        { 'sound': 'intro', 'loop': False },
+                                        { 'sound': 'menu', 'loop': True, 'delay': 18.0}
+                                    ],
             Trigger.MENU:           [
                                         { 'sound': 'menu', 'loop': True }
                                     ],

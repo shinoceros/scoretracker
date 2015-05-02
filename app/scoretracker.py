@@ -85,7 +85,7 @@ class BackgroundScreenManager(ScreenManager):
         self.add_widget(LoungeScreen(name='lounge'))
         self.add_widget(MatchScreen(name='match'))
 
-        SoundManager.play(Trigger.MENU)
+        SoundManager.play(Trigger.INTRO)
 
         # fancy animation
 #        anim = Animation(opacity=1.0, t='out_cubic', d=1.0).start(self)
@@ -420,7 +420,7 @@ class HighlightOverlay(object):
     def animate(self, **animProps):
         class_spec = {'cls': self.orig_obj.__class__}
         Factory.register('HighLightObj', **class_spec)
-        highlight_obj = Factory.HighLightObj(text=self.orig_obj.text, pos=(self.orig_obj.center_x - self.parent.center_x, self.orig_obj.center_y - self.parent.center_y), size=self.orig_obj.size, font_size=self.orig_obj.font_size, **self.kwargs)
+        highlight_obj = Factory.HighLightObj(text=self.orig_obj.text, padding=self.orig_obj.padding, pos=(self.orig_obj.center_x - self.parent.center_x, self.orig_obj.center_y - self.parent.center_y), size=self.orig_obj.size, font_size=self.orig_obj.font_size, **self.kwargs)
         self.parent.add_widget(highlight_obj)
         if 'd' not in animProps:
             animProps['d'] = 1.0
@@ -520,6 +520,14 @@ class LoungeScreen(BaseScreen):
         else:
             self.denied()
 
+    def switch_players_of_team(self, team_id):
+        pa = team_id * 2
+        pb = team_id * 2 + 1
+        self.players[pa], self.players[pb] = self.players[pb], self.players[pa]
+        for pid in [pa, pb]:
+            obj = self.ids['p' + str(pid)].ids.playerName
+            HighlightOverlay(orig_obj=obj, parent=self, active=True, bold=True).animate(font_size=80, color=(1, 1, 1, 0))
+
 class STModalView(BoxLayout):
     title = StringProperty("")
     text = StringProperty("")
@@ -557,13 +565,11 @@ class MatchScreen(BaseScreen):
         super(MatchScreen, self).__init__(**kwargs)
         self.score_objects = [self.ids.labelHome, self.ids.labelAway]
         self.set_title('Spiel')
-        self.state = ''
         self.score_touch = None
         self.start_time = 0.0
         self.submit_success = None
         self.thread = None
-        self.elo = 0.0
-        self.kickoff_team = -1
+        self.__reset()
 
     def __set_submit_icon(self, icon):
         self.ids.btnSubmit.icon = icon
@@ -581,14 +587,14 @@ class MatchScreen(BaseScreen):
         # randomly define kick off team
         self.kickoff_team = random.randint(0, 1)
 
-        Clock.schedule_interval(self.__highlight_kickoff, 1.5)
+        Clock.schedule_interval(self.__highlight_kickoff, 2.0)
 
         SoundManager.play(Trigger.GAME_START, self.players[self.kickoff_team * 2])
 
     def __highlight_kickoff(self, dt):
         # fetch kickoff player label
-        obj = self.ids['player{}'.format(self.kickoff_team * 2)].ids['icon']
-        HighlightOverlay(orig_obj=obj, parent=self, duration=2.0).animate(font_size=100, color=(1, 1, 1, 0))
+        obj = self.ids['label' + ('Home' if self.kickoff_team == 0 else 'Away')]
+        HighlightOverlay(orig_obj=obj, parent=self).animate(font_size=500, color=(0.7, 1, 0.5, 0), d=2.0)
 
     def on_leave(self):
         self.__reset()
@@ -602,7 +608,7 @@ class MatchScreen(BaseScreen):
             view.add_widget(content)
             view.open()
         # game not running anymore
-        elif self.state in ['finished', 'submit_failed']:
+        elif self.state in ['finished', 'submitting', 'submit_failed']:
             view = ModalView(size_hint=(None, None), size=(600, 400), auto_dismiss=False)
             content = Factory.STModalView(title='Spiel abbrechen', text='Das Ergebnis wurde noch nicht hochgeladen.\nWirklich abbrechen?', cb_yes=self.cancel_match)
             view.add_widget(content)
@@ -615,23 +621,27 @@ class MatchScreen(BaseScreen):
         if self.kickoff_team in [0, 1]:
             self.kickoff_team = -1
             Clock.unschedule(self.__highlight_kickoff)
-        # check max goal
-        if value[0] >= self.MAX_GOALS or value[1] >= self.MAX_GOALS:
-            self.state = 'finished'
-            SoundManager.play(Trigger.GAME_END)
+        # check max goal during match
+        if self.state == 'running':
+            if value[0] >= self.MAX_GOALS or value[1] >= self.MAX_GOALS:
+                self.state = 'finished'
+                SoundManager.play(Trigger.GAME_END)
         # manual swiping can resume a finished match
-        else:
-            if self.state == 'finished':
-                self.state = 'running'
-                SoundManager.play(Trigger.GAME_RESUME)
+        elif self.state == 'finished':
+            self.state = 'running'
+            SoundManager.play(Trigger.GAME_RESUME)
 
     def __reset(self):
+        self.state = ''
         self.score = [0, 0]
         self.set_custom_text('00:00')
         self.ids.topbar.customlabel.opacity = 1
-        self.state = ''
         self.score_touch = None
+        self.players = [{}] * 4
+        self.kickoff_team = -1
+        self.elo = 0.0
         Clock.unschedule(self.__update_match_timer)
+        Clock.unschedule(self.__highlight_kickoff)
 
     def __handle_goal(self, team):
         if team == '1':
@@ -641,7 +651,7 @@ class MatchScreen(BaseScreen):
             self.score[1] += 1
             obj = self.ids.labelAway
 
-        HighlightOverlay(orig_obj=obj, parent=self).animate(font_size=500, color=(1, 1, 1, 0))
+        HighlightOverlay(orig_obj=obj, parent=self).animate(font_size=500, color=(1, 1, 1, 0), d=2.0)
         SoundManager.play(Trigger.GOAL)
 
     def process_message(self, msg):
