@@ -10,29 +10,30 @@ class ServerComBase:
         self.user_pin = settings.SERVER_USER_PIN
         self.session = requests.Session()
 
+    def __post(self, url, data):
+        response = self.session.post(url, data=json.dumps(data), timeout=7)
+        print response
+        return response
+
     def __login(self):
         url = self.base_url + '/auth/login'
         data = {
             'userId': self.user_id,
             'pin': self.user_pin
         }
-        return self.session.post(url, json.dumps(data))
+        return self.__post(url, data)
 
-    def __submit_score(self, players, goals1, goals2):
+    def __submit_score(self, players, goals):
         url = self.base_url + '/match'
         data = {
             'f1': players[0]['id'],
             'b1': players[1]['id'],
             'f2': players[2]['id'],
             'b2': players[3]['id'],
-            'goals1': goals1,
-            'goals2': goals2
+            'goals1': goals[0],
+            'goals2': goals[1]
         }
-        return self.session.post(url, json.dumps(data))
-
-    def __logout(self):
-        url = self.base_url + '/auth/logout'
-        return self.session.post(url)
+        return self.__post(url, data)
 
     def __convertPlayerData(self, resp):
         players = []
@@ -53,26 +54,26 @@ class ServerComBase:
         return self.__convertPlayerData(r)
 
     def submit_score(self, players, goals):
-        retval = False
-        elo = 0.0
         try:
-# 1. login
-            if self.__login().status_code == 200:
-                
-# 2. submit
-                response = self.__submit_score(players, goals[0], goals[1])
-                if response.status_code == 200:
-                    data = response.json()
-                    elo = data.get('deltaelo', 0.0)
-                        
+            # try to submit score
+            response = self.__submit_score(players, goals)
+            if response.status_code == 401:
+                # on fail try to login first
+                if self.__login().status_code != 200:
+                    return ('Login failed', None)
+                # login successful -> submit again
+                response = self.__submit_score(players, goals)
+            
+            if response.status_code == 200:
+                data = response.json()
+                elo = data.get('deltaelo', 0.0)
+                return (None, elo)
+            else:
+                return ('Submit failed', None)
 
-# 3. logout
-                    if self.__logout().status_code == 200:
-                        retval = True
         except requests.ConnectionError, e:
             print e
-
-        return (retval, elo)
+            return ('Connection error', None)
 
 ServerCom = ServerComBase()
 

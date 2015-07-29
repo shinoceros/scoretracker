@@ -636,6 +636,7 @@ class MatchScreen(BaseScreen):
         self.score = [0, 0]
         self.set_custom_text('00:00')
         self.ids.topbar.customlabel.opacity = 1
+        self.ids.btnSubmit.blocking = False
         self.score_touch = None
         self.players = [{}] * 4
         self.kickoff_team = -1
@@ -753,7 +754,10 @@ class MatchScreen(BaseScreen):
                 
     def __submit_score_thread(self):
         # submit score to remote server
-        (self.submit_success, self.elo) = ServerCom.submit_score(self.players, self.score)
+        (error, elo) = ServerCom.submit_score(self.players, self.score)
+        if error is None:
+            self.submit_success = True
+            self.elo = elo
         
 
 class ScoreTrackerApp(App):
