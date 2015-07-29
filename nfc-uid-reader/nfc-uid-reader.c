@@ -59,7 +59,7 @@ void main(int argc, const char *argv[])
 				// get time interval from last read
 				int timespan = timestamp - last_timestamp;
 				// only send message if either current uid differs from last uid or debounce timeout exceeded
-				if (strncmp(uid, last_uid, 8) != 0 || timespan >= 2) {
+				if (strncmp(uid, last_uid, 8) != 0 || timespan >= 5) {
 					// build and send json message
 					char* pMsg = (char*)malloc(1024);
 					sprintf(pMsg, "{\"trigger\": \"rfid\", \"data\": \"%s\"}", uid);
