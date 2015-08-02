@@ -71,9 +71,12 @@ class ServerComBase:
             else:
                 return ('Submit failed', None)
 
-        except requests.ConnectionError, e:
+        except requests.exceptions.ConnectionError as e:
             print e
             return ('Connection error', None)
+        except requests.exceptions.Timeout as e:
+            print e
+            return ('Timeout error', None)
 
 ServerCom = ServerComBase()
 

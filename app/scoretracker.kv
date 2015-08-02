@@ -15,6 +15,7 @@
 #:set color_orange_100  (0.800, 0.733, 0.125, 1.000) # rgba('CCBB20FF')
 #:set color_red_12      (1.000, 0.000, 0.000, 0.188) # rgba('FF000030')
 #:set color_blue_12     (0.000, 0.000, 1.000, 0.188) # rgba('0000FF30')
+#:set color_dragging    (0.040, 0.450, 0.500, 1.000)
 #:set color_blueish_90 (0.187, 0.637, 0.875, 0.900) # rgba('30A3E0E6')
 
 <Label>:
@@ -400,6 +401,7 @@
 	iconText: ''
 	iconLeft: True
 	active: False
+	dragging: False
 
     sound: Trigger.BUTTON
 	background_normal: ''
@@ -415,7 +417,7 @@
 		# active highlight
 		canvas:
 			Color:
-				rgba: color_orange_12 if root.active else color_white_2
+				rgba: color_dragging if root.dragging else color_orange_12 if root.active else color_white_2
 			Rectangle:
 				pos: self.pos
 				size: self.size
@@ -513,16 +515,12 @@
 		Color:
 			rgba: color_white_100
     padding: (20, 20)
-    # switch players button
-    SwitchPlayersButton:
-        on_press: root.parent.parent.parent.switch_players_of_team(root.teamid)
-        size_hint_x: 0.25
    # team label
     Label:
         text: root.labelText
 		bold: True
 		font_size: 40
-        size_hint_x: 0.75
+        size_hint_x: 1.0
 
 <LoungeScreen>:
 	SubPageLayout:
@@ -554,38 +552,52 @@
 				myid: 0
 				id: p0
                 active: root.current_player_slot == self.myid
+				dragging: (root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid))
 				playerPos: 'Angreifer'
 				playerName: root.players[self.myid].get('name', '---')
                 iconText: icons.attacker
 				iconLeft: True
-				on_release: root.click_player_slot(self.myid)
+				on_touch_down: root.handle_slot_touch_down(args[1], self.myid)
+				on_touch_move: root.handle_slot_touch_move(args[1])
+				on_touch_up:   root.handle_slot_touch_up(args[1])
+
 			PlayerSlot:
 				myid: 2
 				id: p2
                 active: root.current_player_slot == self.myid
+				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
 				playerPos: 'Angreifer'
 				playerName: root.players[self.myid].get('name', '---')
                 iconText: icons.attacker
 				iconLeft: False
-				on_release: root.click_player_slot(self.myid)
+				on_touch_down: root.handle_slot_touch_down(args[1], self.myid)
+				on_touch_move: root.handle_slot_touch_move(args[1])
+				on_touch_up:   root.handle_slot_touch_up(args[1])
+
 			PlayerSlot:
 				myid: 1
 				id: p1
                 active: root.current_player_slot == self.myid
+				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
 				playerPos: 'Verteidiger'
 				playerName: root.players[self.myid].get('name', '---')
                 iconText: icons.defender
 				iconLeft: True
-				on_release: root.click_player_slot(self.myid)
+				on_touch_down: root.handle_slot_touch_down(args[1], self.myid)
+				on_touch_move: root.handle_slot_touch_move(args[1])
+				on_touch_up:   root.handle_slot_touch_up(args[1])
 			PlayerSlot:
 				myid: 3
 				id: p3
                 active: root.current_player_slot == self.myid
+				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
 				playerPos: 'Verteidiger'
 				playerName: root.players[self.myid].get('name', '---')
                 iconText: icons.defender
 				iconLeft: False
-				on_release: root.click_player_slot(self.myid)
+				on_touch_down: root.handle_slot_touch_down(args[1], self.myid)
+				on_touch_move: root.handle_slot_touch_move(args[1])
+				on_touch_up:   root.handle_slot_touch_up(args[1])
 
 
 <ScoreLabel@Label>:

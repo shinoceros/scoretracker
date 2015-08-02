@@ -22,12 +22,14 @@ class Trigger(Enum):
     DENIED = 6
     RFID = 7
     PLAYER_JOINED = 8 # data: player dict
-    BUTTON = 9
-    BACK = 10
-    EXIT = 11
-    OFFSIDE = 12
-    PLAYER_SELECTED = 13 # data: player dict
-    INTRO = 14
+    PLAYERS_SWITCHED = 9
+    PLAYER_MOVED = 10
+    BUTTON = 11
+    BACK = 12
+    EXIT = 13
+    OFFSIDE = 14
+    PLAYER_SELECTED = 15 # data: player dict
+    INTRO = 16
 
 class SoundManagerBase(object):
 
@@ -52,8 +54,10 @@ class SoundManagerBase(object):
             'back':    { 'type': 'fixed', 'path': 'chime_low1', 'volume': 1.0 },
             'exit':    { 'type': 'random', 'path': 'shutdown/*', 'volume': 1.0 },
             'rfid':    { 'type': 'fixed', 'path': 'chime_up3', 'volume': 1.0 },
-            'scratch': { 'type': 'fixed', 'path': 'scratch', 'volume': 1.0 },
-            'player':  { 'type': 'indexed', 'path': 'players/*', 'volume': 1.0 }
+            'scratch': { 'type': 'fixed', 'path': 'scratch', 'volume': 0.8 },
+            'player':  { 'type': 'indexed', 'path': 'players/*', 'volume': 1.0 },
+            'players_switched': { 'type': 'fixed', 'path': 'players_switched', 'volume': 1.0 },
+            'player_moved': { 'type': 'fixed', 'path': 'player_moved', 'volume': 1.0 }
         }
 
         # read sound files
@@ -121,6 +125,12 @@ class SoundManagerBase(object):
                                         { 'sound': 'rfid' },
                                         { 'sound': 'player', 'delay': 0.5 }
                                     ],
+            Trigger.PLAYERS_SWITCHED: [
+                                        { 'sound': 'players_switched' }
+                                    ],                                    
+            Trigger.PLAYER_MOVED:   [
+                                        { 'sound': 'player_moved' }
+                                    ],                                    
             Trigger.PLAYER_SELECTED:  [
                                         { 'sound': 'player' }
                                     ]

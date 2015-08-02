@@ -29,6 +29,7 @@ import threading
 import time
 import os
 import random
+import math
 
 from hardwarelistener import HardwareListener
 from soundmanager import SoundManager, Trigger
@@ -436,16 +437,25 @@ class LoungeScreen(BaseScreen):
     current_player_slot = NumericProperty(0)
     players = ListProperty([{}] * 4)
     dropdown_player = ObjectProperty()
+    drag_start_id = NumericProperty(-1)
+    drag_stop_id = NumericProperty(-1)
+    dragging = BooleanProperty()
 
     def __init__(self, **kwargs):
         super(LoungeScreen, self).__init__(**kwargs)
         self.set_title('Aufstellung')
         self.ids.topbar.hasNext = True
+        self.is_dropdown_open = False
+        self.slot_touch = None
+
         self.__reset()
 
     def on_enter(self):
         Clock.schedule_once(lambda dt: self.__setup_player_dropdown(), 0.2)
         self.current_player_slot = 0
+        
+    def on_leave(self):
+        self.close_dropdown()
 
     def on_next(self):
         self.manager.current = 'match'
@@ -455,17 +465,35 @@ class LoungeScreen(BaseScreen):
         self.current_player_slot = 0
 
     def __setup_player_dropdown(self):
-        self.dropdown_player = DropDown()
-        self.dropdown_player.bind(on_select=self.on_player_select)
+        # only create if not existing
+        if not self.dropdown_player:
+            self.dropdown_player = DropDown(auto_dismiss=False)
+            self.dropdown_player.bind(on_select=self.on_player_select)
+            self.dropdown_player.bind(on_dismiss=self.on_dropdown_dismiss)
 
-        players = sorted(g_players, key=lambda player: player['name'])
-        for player in players:
-            btn = PlayerButton(data=player)
-            btn.bind(on_release=lambda btn: self.dropdown_player.select(btn.data))
-            self.dropdown_player.add_widget(btn)
+            players = sorted(g_players, key=lambda player: player['name'])
+            for player in players:
+                btn = PlayerButton(data=player)
+                btn.bind(on_release=lambda btn: self.dropdown_player.select(btn.data))
+                self.dropdown_player.add_widget(btn)
 
+            
+    def on_dropdown_dismiss(self, instance):
+        self.is_dropdown_open = False
+        
+    def open_dropdown(self, slot_id):
+        if not self.is_dropdown_open:
+            obj = self.ids['p' + str(slot_id)]
+            self.dropdown_player.open(obj)
+            self.is_dropdown_open = True
+
+    def close_dropdown(self):
+        if self.is_dropdown_open:
+            self.dropdown_player.dismiss()
+            
     # player was selected from dropdown list
     def on_player_select(self, instance, data):
+        self.dropdown_player.dismiss()
         self.set_player(data)
 
     def on_players(self, instance, value):
@@ -477,16 +505,7 @@ class LoungeScreen(BaseScreen):
         self.ids.topbar.isNextEnabled = (count_players == 4)
 
     def click_player_slot(self, player_slot):
-        # first click on player slot: simply activate
-        if player_slot != self.current_player_slot:
-            self.current_player_slot = player_slot
-            # highlight icon
-            obj = self.ids['p' + str(player_slot)].ids.icon
-            HighlightOverlay(orig_obj=obj, parent=self, active=True).animate(font_size=160, color=(1, 1, 1, 0))
-        # second click on player slot
-        else:
-            obj = self.ids['p' + str(player_slot)]
-            self.dropdown_player.open(obj)
+        pass
 
     def __handle_rfid(self, rfid):
         # RFID --> player ID
@@ -499,18 +518,104 @@ class LoungeScreen(BaseScreen):
             self.denied()
         # player does exist
         else:
+            self.dropdown_player.dismiss()
             self.set_player(player)
 
-    def set_player(self, player):
-        # player has already been set before
-        if player in self.players:
-            # remove player's position
-            self.players = [{} if p == player else p for p in self.players]
-        # set, highlight and say player name
-        self.players[self.current_player_slot] = player
-        obj = self.ids['p' + str(self.current_player_slot)].ids.playerName
+    def highlight_player(self, slot_id):
+        obj = self.ids['p' + str(slot_id)].ids.playerName
         HighlightOverlay(orig_obj=obj, parent=self, active=True, bold=True).animate(font_size=80, color=(1, 1, 1, 0))
-        SoundManager.play(Trigger.PLAYER_JOINED, player)
+
+    def switch_players(self, slot_id_1, slot_id_2):
+        self.players[slot_id_1], self.players[slot_id_2] = self.players[slot_id_2], self.players[slot_id_1]
+        for player_id in [slot_id_1, slot_id_2]:
+            self.highlight_player(player_id)
+        SoundManager.play(Trigger.PLAYERS_SWITCHED)
+        
+    # a slot was pressed
+    def handle_slot_touch_down(self, event, slot_id):
+        self.slot_touch = {'source_id': slot_id, 'source_pos': event.pos, 'target_id': slot_id, 'dist': 0.0}
+        self.drag_start_id = slot_id
+        self.dragging = False
+        #print 'down', self.slot_touch
+        
+    # a slot was dragged
+    def handle_slot_touch_move(self, event):
+        if self.slot_touch:
+            dx = abs(self.slot_touch['source_pos'][0] - event.pos[0])
+            dy = abs(self.slot_touch['source_pos'][1] - event.pos[1])
+            dist = math.sqrt(dx * dx + dy * dy)
+            self.slot_touch['dist'] = dist
+            self.dragging = (dist > 10.0)
+            
+            # check collisions
+            colliding = False
+            for i in range(0, 4):
+                obj = self.ids['p' + str(i)]
+                collide = obj.collide_point(event.pos[0], event.pos[1])
+                if collide:
+                    self.slot_touch['target_id'] = i
+                    colliding = True
+
+            if not colliding:
+                self.slot_touch['target_id'] = -1
+
+            self.drag_stop_id = self.slot_touch['target_id']
+
+            #print 'move', self.slot_touch
+                    
+    # a slot was released
+    def handle_slot_touch_up(self, event):
+        if self.slot_touch:
+            #print 'up', self.slot_touch
+            # release on same slot
+            if self.slot_touch['source_id'] == self.slot_touch['target_id']:
+                # started in this slot: toggle dropdown
+                if self.slot_touch['source_id'] == self.current_player_slot:
+                    if self.is_dropdown_open:
+                        self.close_dropdown()
+                    else:
+                        self.open_dropdown(self.slot_touch['target_id'])
+                # activate
+                else:
+                    self.current_player_slot = self.slot_touch['source_id']
+                    self.close_dropdown()
+                    # highlight icon
+                    obj = self.ids['p' + str(self.current_player_slot)].ids.icon
+                    HighlightOverlay(orig_obj=obj, parent=self, active=True).animate(font_size=160, color=(1, 1, 1, 0))
+            # dragged to another slot
+            else:
+                if self.slot_touch['target_id'] is not None:
+                    self.switch_players(self.slot_touch['source_id'], self.slot_touch['target_id'])
+
+            # TODO: switch players
+            self.slot_touch = None
+            self.drag_start_id = -1
+            self.drag_stop_id = -1
+
+    def set_player(self, player):
+        # check if player has already been set before
+        try:
+            idx_already_set = self.players.index(player)
+        except ValueError, e:
+            # player is not in any team yet
+            self.players[self.current_player_slot] = player
+            self.highlight_player(self.current_player_slot)
+            SoundManager.play(Trigger.PLAYER_JOINED, player)
+        else:
+            # only switch position if new player is not already in current slot
+            if idx_already_set != self.current_player_slot:
+                # switch slots
+                self.players[idx_already_set] = self.players[self.current_player_slot]
+                self.players[self.current_player_slot] = player
+                self.highlight_player(self.current_player_slot)
+                # check if target slot was empty
+                if self.players[idx_already_set] == {}:
+                    # player is moved to empty slot
+                    SoundManager.play(Trigger.PLAYER_MOVED)
+                else:
+                    # player switches position with another player
+                    SoundManager.play(Trigger.PLAYERS_SWITCHED)
+                    self.highlight_player(idx_already_set)
         # advance to next player block
         self.current_player_slot = (self.current_player_slot + 1) % 4
 
@@ -519,14 +624,6 @@ class LoungeScreen(BaseScreen):
             self.__handle_rfid(msg['data'])
         else:
             self.denied()
-
-    def switch_players_of_team(self, team_id):
-        pa = team_id * 2
-        pb = team_id * 2 + 1
-        self.players[pa], self.players[pb] = self.players[pb], self.players[pa]
-        for pid in [pa, pb]:
-            obj = self.ids['p' + str(pid)].ids.playerName
-            HighlightOverlay(orig_obj=obj, parent=self, active=True, bold=True).animate(font_size=80, color=(1, 1, 1, 0))
 
 class STModalView(BoxLayout):
     title = StringProperty("")
@@ -758,7 +855,11 @@ class MatchScreen(BaseScreen):
         if error is None:
             self.submit_success = True
             self.elo = elo
-        
+            Logger.info('{}'.format(self.elo))
+
+        else:
+            self.submit_success = False
+            self.elo = 0.0
 
 class ScoreTrackerApp(App):
 
