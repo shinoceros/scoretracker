@@ -30,6 +30,8 @@ class Trigger(Enum):
     OFFSIDE = 14
     PLAYER_SELECTED = 15 # data: player dict
     INTRO = 16
+    HOTSPOT_CONNECT = 17
+    HOTSPOT_DISCONNECT = 18
 
 class SoundManagerBase(object):
 
@@ -57,7 +59,9 @@ class SoundManagerBase(object):
             'scratch': { 'type': 'fixed', 'path': 'scratch', 'volume': 0.8 },
             'player':  { 'type': 'indexed', 'path': 'players/*', 'volume': 1.0 },
             'players_switched': { 'type': 'fixed', 'path': 'players_switched', 'volume': 1.0 },
-            'player_moved': { 'type': 'fixed', 'path': 'player_moved', 'volume': 1.0 }
+            'player_moved': { 'type': 'fixed', 'path': 'player_moved', 'volume': 1.0 },
+            'hotspot_connect':  { 'type': 'fixed', 'path': 'hotspot', 'volume': 1.0 },
+            'hotspot_disconnect':  { 'type': 'fixed', 'path': 'no_hotspot', 'volume': 1.0 }
         }
 
         # read sound files
@@ -133,6 +137,13 @@ class SoundManagerBase(object):
                                     ],                                    
             Trigger.PLAYER_SELECTED:  [
                                         { 'sound': 'player' }
+                                    ],
+            Trigger.HOTSPOT_CONNECT: [
+                                        { 'sound': 'hotspot_connect' },
+                                        { 'sound': 'player', 'delay': 0.7 }
+                                    ],
+            Trigger.HOTSPOT_DISCONNECT: [
+                                        { 'sound': 'hotspot_disconnect' }
                                     ]
         }
 

@@ -36,7 +36,7 @@ from soundmanager import SoundManager, Trigger
 from onpropertyanimationmixin import OnPropertyAnimationMixin
 from persistentdict import PersistentDict
 from servercom import ServerCom
-import networkinfo
+from networkinfo import NetworkInfo
 import icons
 
 # GLOBALS
@@ -79,6 +79,8 @@ class BackgroundScreenManager(ScreenManager):
             g_players = dictionary.get(settings.STORAGE_PLAYERS, [])
             g_rfid_map = dictionary.get(settings.STORAGE_RFIDMAP, {})
 
+        NetworkInfo.start_polling()
+        
         # setup screens
         self.add_widget(MenuScreen(name='menu'))
         self.add_widget(RfidSetupScreen(name='rfid-setup'))
@@ -189,17 +191,20 @@ class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
         Clock.unschedule(self.fetch_network_info)
 
     def fetch_network_info(self, dt):
-        nwinfo = networkinfo.get_network_info()
-        state = nwinfo.get('wpa_state', 'DISCONNECTED')
+        nwinfo = NetworkInfo.get_data()
+        state = nwinfo.get('state', 'DISCONNECTED')
         ip_address = nwinfo.get('ip_address', '')
-        id_str = nwinfo.get('id_str', '')
+        host = nwinfo.get('id_str', '')
+        player = get_player_by_id(g_players, host)
+        if player is not None:
+            host = player['name']
 
         if state == 'SCANNING':
             self.network_str = 'scanning for networks...'
         elif state == 'ASSOCIATED' or (state == 'COMPLETED' and ip_address == ''):
             self.network_str = 'connected, fetching IP...'
         elif state == 'COMPLETED' and ip_address != '':
-            self.network_str = 'connected: {} ({})'.format(ip_address, id_str)
+            self.network_str = 'connected: {} ({})'.format(ip_address, host)
         else:
             self.network_str = 'not connected'
         
@@ -554,12 +559,12 @@ class LoungeScreen(BaseScreen):
                 collide = obj.collide_point(event.pos[0], event.pos[1])
                 if collide:
                     self.slot_touch['target_id'] = i
+                    self.drag_stop_id = i
                     colliding = True
 
             if not colliding:
-                self.slot_touch['target_id'] = -1
-
-            self.drag_stop_id = self.slot_touch['target_id']
+                self.slot_touch['target_id'] = None
+                self.drag_stop_id = -1
 
             #print 'move', self.slot_touch
                     
