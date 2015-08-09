@@ -1,16 +1,12 @@
 from kivy.logger import Logger
-from kivy.clock import Clock
 import subprocess
-import shlex
 import os
 from enum import Enum
 from threading import Thread
-#from queue import Queue
 import glob
 import random
 from collections import deque
 from soundissuer import SoundIssuer
-from functools import partial
 
 class Trigger(Enum):
     MENU = 0
@@ -39,29 +35,29 @@ class SoundManagerBase(object):
     EXT = '.mp3'
 
     def __init__(self):
-        self.si = SoundIssuer()
+        self.sound_issuer = SoundIssuer()
         #self.queue = Queue()
         self.stopped = False
 
         self.map_sound_files = {
-            'intro':   { 'type': 'fixed', 'path': 'intro', 'volume': 0.7 },
-            'menu':    { 'type': 'random', 'path': 'menu/*', 'volume': 0.7 },
-            'whistle': { 'type': 'fixed', 'path': 'whistle_medium', 'volume': 0.8 },
-            'kickoff': { 'type': 'fixed', 'path': 'kickoff', 'volume': 1.0 },
-            'goal':    { 'type': 'random', 'path': 'goal/*', 'volume': 1.0 },
-            'offside': { 'type': 'random', 'path': 'offside/*', 'volume': 1.0 },
-            'stadium': { 'type': 'random', 'path': 'stadium/*', 'volume': 0.5 },
-            'denied':  { 'type': 'fixed', 'path': 'chime_down2', 'volume': 1.0 },
-            'button':  { 'type': 'fixed', 'path': 'chime_medium1', 'volume': 1.0 },
-            'back':    { 'type': 'fixed', 'path': 'chime_low1', 'volume': 1.0 },
-            'exit':    { 'type': 'random', 'path': 'shutdown/*', 'volume': 1.0 },
-            'rfid':    { 'type': 'fixed', 'path': 'chime_up3', 'volume': 1.0 },
-            'scratch': { 'type': 'fixed', 'path': 'scratch', 'volume': 0.8 },
-            'player':  { 'type': 'indexed', 'path': 'players/*', 'volume': 1.0 },
-            'players_switched': { 'type': 'fixed', 'path': 'players_switched', 'volume': 1.0 },
-            'player_moved': { 'type': 'fixed', 'path': 'player_moved', 'volume': 1.0 },
-            'hotspot_connect':  { 'type': 'fixed', 'path': 'hotspot', 'volume': 1.0 },
-            'hotspot_disconnect':  { 'type': 'fixed', 'path': 'no_hotspot', 'volume': 1.0 }
+            'intro':   {'type': 'fixed', 'path': 'intro', 'volume': 0.7},
+            'menu':    {'type': 'random', 'path': 'menu/*', 'volume': 0.7},
+            'whistle': {'type': 'fixed', 'path': 'whistle_medium', 'volume': 0.8},
+            'kickoff': {'type': 'fixed', 'path': 'kickoff', 'volume': 1.0},
+            'goal':    {'type': 'random', 'path': 'goal/*', 'volume': 1.0},
+            'offside': {'type': 'random', 'path': 'offside/*', 'volume': 1.0},
+            'stadium': {'type': 'random', 'path': 'stadium/*', 'volume': 0.5},
+            'denied':  {'type': 'fixed', 'path': 'chime_down2', 'volume': 1.0},
+            'button':  {'type': 'fixed', 'path': 'chime_medium1', 'volume': 1.0},
+            'back':    {'type': 'fixed', 'path': 'chime_low1', 'volume': 1.0},
+            'exit':    {'type': 'random', 'path': 'shutdown/*', 'volume': 1.0},
+            'rfid':    {'type': 'fixed', 'path': 'chime_up3', 'volume': 1.0},
+            'scratch': {'type': 'fixed', 'path': 'scratch', 'volume': 0.8},
+            'player':  {'type': 'indexed', 'path': 'players/*', 'volume': 1.0},
+            'players_switched': {'type': 'fixed', 'path': 'players_switched', 'volume': 1.0},
+            'player_moved': {'type': 'fixed', 'path': 'player_moved', 'volume': 1.0},
+            'hotspot_connect':  {'type': 'fixed', 'path': 'hotspot', 'volume': 1.0},
+            'hotspot_disconnect':  {'type': 'fixed', 'path': 'no_hotspot', 'volume': 1.0}
         }
 
         # read sound files
@@ -70,80 +66,80 @@ class SoundManagerBase(object):
             files = glob.glob(self.BASEPATH + entry['path'] + self.EXT)
             if entry['type'] == 'indexed':
                 self.map_sound_files[key]['map'] = {}
-                for f in files:
-                    (name, ext) = os.path.splitext(os.path.basename(f))
-                    self.map_sound_files[key]['map'][int(name)] = f
+                for sound_file in files:
+                    (name, ext) = os.path.splitext(os.path.basename(sound_file))
+                    self.map_sound_files[key]['map'][int(name)] = sound_file
             else:
                 random.shuffle(files)
                 self.map_sound_files[key]['files'] = deque(files)
 
         self.map_trigger = {
             Trigger.INTRO:          [
-                                        { 'sound': 'intro', 'loop': False },
-                                        { 'sound': 'menu', 'loop': True, 'delay': 18.0}
+                                        {'sound': 'intro', 'loop': False},
+                                        {'sound': 'menu', 'loop': True, 'delay': 18.0}
                                     ],
             Trigger.MENU:           [
-                                        { 'sound': 'menu', 'loop': True }
+                                        {'sound': 'menu', 'loop': True}
                                     ],
             Trigger.GAME_START:     [
-                                        { 'sound': 'kickoff' },
-                                        { 'sound': 'player', 'delay': 0.6 },
-                                        { 'sound': 'whistle', 'delay': 1.5 },
-                                        { 'sound': 'stadium', 'loop': True, 'delay': 1.0 }
+                                        {'sound': 'kickoff'},
+                                        {'sound': 'player', 'delay': 0.6},
+                                        {'sound': 'whistle', 'delay': 1.5},
+                                        {'sound': 'stadium', 'loop': True, 'delay': 1.0}
                                     ],
             Trigger.GAME_END:       [
-                                        { 'sound': 'whistle' },
-                                        { 'sound': 'menu', 'loop': True }
+                                        {'sound': 'whistle'},
+                                        {'sound': 'menu', 'loop': True}
                                     ],
             Trigger.GAME_PAUSE:     [
-                                        { 'stoploop': True },
-                                        { 'sound': 'scratch' }
+                                        {'stoploop': True},
+                                        {'sound': 'scratch'}
                                     ],
             Trigger.GAME_RESUME:    [
-                                        { 'sound': 'whistle' },
-                                        { 'sound': 'stadium', 'loop': True }
+                                        {'sound': 'whistle'},
+                                        {'sound': 'stadium', 'loop': True}
                                     ],
             Trigger.GOAL:           [
-                                        { 'sound': 'goal' }
+                                        {'sound': 'goal'}
                                     ],
             Trigger.DENIED:         [
-                                        { 'sound': 'denied' }
+                                        {'sound': 'denied'}
                                     ],
             Trigger.RFID:           [
-                                        { 'sound': 'rfid' }
+                                        {'sound': 'rfid'}
                                     ],
             Trigger.BUTTON:         [
-                                        { 'sound': 'button' }
+                                        {'sound': 'button'}
                                     ],
             Trigger.BACK:           [
-                                        { 'sound': 'back' }
+                                        {'sound': 'back'}
                                     ],
             Trigger.EXIT:           [
-                                        { 'stoploop': True },
-                                        { 'sound': 'exit' }
+                                        {'stoploop': True},
+                                        {'sound': 'exit'}
                                     ],
             Trigger.OFFSIDE:        [
-                                        { 'sound': 'offside' }
+                                        {'sound': 'offside'}
                                     ],
             Trigger.PLAYER_JOINED:  [
-                                        { 'sound': 'rfid' },
-                                        { 'sound': 'player', 'delay': 0.5 }
+                                        {'sound': 'rfid'},
+                                        {'sound': 'player', 'delay': 0.5}
                                     ],
             Trigger.PLAYERS_SWITCHED: [
-                                        { 'sound': 'players_switched' }
-                                    ],                                    
+                                        {'sound': 'players_switched'}
+                                    ],
             Trigger.PLAYER_MOVED:   [
-                                        { 'sound': 'player_moved' }
-                                    ],                                    
+                                        {'sound': 'player_moved'}
+                                    ],
             Trigger.PLAYER_SELECTED:  [
-                                        { 'sound': 'player' }
+                                        {'sound': 'player'}
                                     ],
             Trigger.HOTSPOT_CONNECT: [
-                                        { 'sound': 'hotspot_connect' },
-                                        { 'sound': 'player', 'delay': 0.7 }
+                                        {'sound': 'hotspot_connect'},
+                                        {'sound': 'player', 'delay': 0.7}
                                     ],
             Trigger.HOTSPOT_DISCONNECT: [
-                                        { 'sound': 'hotspot_disconnect' }
+                                        {'sound': 'hotspot_disconnect'}
                                     ]
         }
 
@@ -170,22 +166,22 @@ class SoundManagerBase(object):
                             path = sound_conf['files'][0]
                     elif sound_conf['type'] == 'indexed':
                         # ayayay....
-                        if 'id' in param and param['id'] in sound_conf['map']:
+                        if param and 'id' in param and param['id'] in sound_conf['map']:
                             path = sound_conf['map'][param['id']]
 
                     if path != '':
-                        self.si.play(path, volume, loop, delay)
+                        self.sound_issuer.play(path, volume, loop, delay)
                 elif 'stoploop' in command:
-                    self.si.stop_loop()
+                    self.sound_issuer.stop_loop()
 
     def __thread(self):
         pass
 
     def create_player_sound(self, player):
         if 'id' in player:
-            id = int(player['id'])
-            if id not in self.map_sound_files['player']['map']:
-                path = "{}players/{}.mp3".format(self.BASEPATH, id)
+            player_id = int(player['id'])
+            if player_id not in self.map_sound_files['player']['map']:
+                path = "{}players/{}.mp3".format(self.BASEPATH, player_id)
                 print path
                 if not os.path.isfile(path):
                     # create TTS file
@@ -194,6 +190,6 @@ class SoundManagerBase(object):
                     "--compression 192 \"{}\"".format("mb-de7", player['name'], path)
                     subprocess.call(cmd, shell=True)
                     Logger.info("ScoreTracker: TTS file generated: %s" % path)
-                    self.map_sound_files['player']['map'][id] = path
+                    self.map_sound_files['player']['map'][player_id] = path
 
 SoundManager = SoundManagerBase()

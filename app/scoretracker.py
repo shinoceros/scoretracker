@@ -14,7 +14,6 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.button import Button
 from kivy.uix.dropdown import DropDown
-from kivy.uix.label import Label
 from kivy.uix.modalview import ModalView
 from kivy.uix.screenmanager import ScreenManager
 from kivy.uix.screenmanager import Screen
@@ -24,43 +23,19 @@ from kivy.properties import NumericProperty, ObjectProperty, BooleanProperty, Li
 from kivy.animation import Animation
 from kivy.logger import Logger
 from kivy.clock import Clock, mainthread
-from random import randint
 import threading
 import time
 import os
-import random
 import math
 
 from hardwarelistener import HardwareListener
 from soundmanager import SoundManager, Trigger
 from onpropertyanimationmixin import OnPropertyAnimationMixin
-from persistentdict import PersistentDict
 from servercom import ServerCom
 from networkinfo import NetworkInfo
+from gamedata import GameData
+from playerdata import PlayerData
 import icons
-
-# GLOBALS
-g_players = []
-g_rfid_map = {}
-
-def get_player_by_id(players, player_id):
-    return next((item for item in players if item["id"] == player_id), None)
-
-def get_player_by_name(players, player_name):
-    return next((item for item in players if item["name"] == player_name), None)
-
-
-class GameData(object):
-    players = [{}] * 4
-    
-    def set_players(self, players):
-        self.players = players
-
-    def get_players(self):
-        return self.players
-        
-game_data = GameData()
-
 
 class BackgroundScreenManager(ScreenManager):
 
@@ -72,15 +47,8 @@ class BackgroundScreenManager(ScreenManager):
         self.hwlistener = HardwareListener()
         Clock.schedule_interval(self.callback, 1/30.0)
 
-        # setup storage
-        with PersistentDict(settings.STORAGE_FILE, 'c', format='json') as dictionary:
-            global g_players
-            global g_rfid_map
-            g_players = dictionary.get(settings.STORAGE_PLAYERS, [])
-            g_rfid_map = dictionary.get(settings.STORAGE_RFIDMAP, {})
-
         NetworkInfo.start_polling()
-        
+
         # setup screens
         self.add_widget(MenuScreen(name='menu'))
         self.add_widget(RfidSetupScreen(name='rfid-setup'))
@@ -117,6 +85,10 @@ class TopBar(BoxLayout):
     rect_y = NumericProperty(0.0)
     rect_w = NumericProperty(0.0)
     rect_h = NumericProperty(0.0)
+    network_info = DictProperty({'connected': False})
+
+    def network_info_pressed(self):
+        NetworkInfo.say_connection_status()
 
 class ButtonSound(ButtonBehavior):
     pass
@@ -143,15 +115,16 @@ class IconButton(SoundButton):
             if self.reset_icon_when_done:
                 self.icon = self.last_icon
             self.disabled = False
-            
+
     def __rotate(self, dt):
         self.icon_angle -= 5
-        
+
 
 class BaseScreen(Screen, OnPropertyAnimationMixin):
 
     def __init__(self, **kwargs):
         super(BaseScreen, self).__init__(**kwargs)
+        NetworkInfo.register(self.__update_network_info)
 
     def process_message(self, msg):
         self.denied()
@@ -167,12 +140,15 @@ class BaseScreen(Screen, OnPropertyAnimationMixin):
     def denied(self):
         SoundManager.play(Trigger.DENIED)
 
+    def __update_network_info(self, nwinfo):
+        if 'topbar' in self.ids:
+            self.ids.topbar.network_info = nwinfo
+
     def set_title(self, text):
         self.ids.topbar.title = text
 
     def set_custom_text(self, text):
         self.ids.topbar.customtext = text
-
 
 class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
 
@@ -183,31 +159,35 @@ class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
         super(MenuScreen, self).__init__(**kwargs)
         # initial fade in
         self.fadeopacity = 0.0
+        NetworkInfo.register(self.__update_network_info)
 
     def on_enter(self):
-        Clock.schedule_interval(self.fetch_network_info, 1.0)
+        pass
 
     def on_leave(self):
-        Clock.unschedule(self.fetch_network_info)
+        pass
 
-    def fetch_network_info(self, dt):
-        nwinfo = NetworkInfo.get_data()
-        state = nwinfo.get('state', 'DISCONNECTED')
-        ip_address = nwinfo.get('ip_address', '')
-        host = nwinfo.get('id_str', '')
-        player = get_player_by_id(g_players, host)
-        if player is not None:
-            host = player['name']
+    def __update_network_info(self, nwinfo):
+        #state = nwinfo.get('state', 'DISCONNECTED')
+        connected = nwinfo.get('connected', False)
 
-        if state == 'SCANNING':
-            self.network_str = 'scanning for networks...'
-        elif state == 'ASSOCIATED' or (state == 'COMPLETED' and ip_address == ''):
-            self.network_str = 'connected, fetching IP...'
-        elif state == 'COMPLETED' and ip_address != '':
-            self.network_str = 'connected: {} ({})'.format(ip_address, host)
+        if connected:
+            ip_address = nwinfo.get('ip_address', '')
+            hostname = nwinfo.get('hostname', '')
+            self.network_str = 'connected: {} ({})'.format(ip_address, hostname)
         else:
             self.network_str = 'not connected'
+
         
+#        if state == 'SCANNING':
+#            self.network_str = 'scanning for networks...'
+#        elif state == 'ASSOCIATED' or (state == 'COMPLETED' and ip_address == ''):
+#            self.network_str = 'connected, fetching IP...'
+#        elif state == 'COMPLETED' and ip_address != '':
+#            self.network_str = 'connected: {} ({})'.format(ip_address, hostname)
+#        else:
+#            self.network_str = 'not connected'
+
     def shutdown(self):
         # final fade out
         self.fadeopacity = 1.0
@@ -244,7 +224,7 @@ class RfidSetupScreen(BaseScreen):
         self.dropdown_player = DropDown()
         self.dropdown_player.bind(on_select=self.on_player_select)
 
-        players = sorted(g_players, key=lambda player: player['name'])
+        players = sorted(PlayerData.get_players(), key=lambda player: player['name'])
         for player in players:
             btn = PlayerButton(data=player)
             btn.bind(on_release=lambda btn: self.dropdown_player.select(btn.data))
@@ -259,12 +239,12 @@ class RfidSetupScreen(BaseScreen):
         self.ids.btnPlayer.iconText = self.current_player.get('name', u'---')
         SoundManager.play(Trigger.PLAYER_SELECTED, self.current_player)
         # enable "accept" button if current player is set and was not stored before
-        self.ids.btnAccept.disabled = not (self.current_player.has_key('id') and self.current_player.get('id') != g_rfid_map.get(self.current_rfid))
+        self.ids.btnAccept.disabled = not (self.current_player.has_key('id') and self.current_player.get('id') != PlayerData.get_rfid_map().get(self.current_rfid))
 
     # current rfid object changed
     def on_current_rfid(self, instance, value):
         # enable "remove" button if rfid mapping exists
-        self.ids.btnClear.disabled = not g_rfid_map.has_key(self.current_rfid)
+        self.ids.btnClear.disabled = not PlayerData.get_rfid_map().has_key(self.current_rfid)
         # disable player selection box if no RFID is set
         self.ids.btnPlayer.disabled = not self.current_rfid
         self.teaching = True if self.current_rfid else False
@@ -296,25 +276,17 @@ class RfidSetupScreen(BaseScreen):
             Clock.schedule_interval(self.__highlight_rfid, 1.5)
 
     def __updatenum_players(self):
-        self.num_players = g_players.__len__()
+        self.num_players = PlayerData.get_players().__len__()
 
     def __fetch_players_list_thread(self):
         # fetch players list from remote server
-        global g_players
         players = ServerCom.fetch_players()
         if players.__len__() > 0:
-            g_players = players
-            # store players in file
-            with PersistentDict(settings.STORAGE_FILE, 'c', format='json') as dictionary:
-                dictionary[settings.STORAGE_PLAYERS] = g_players
+            PlayerData.setPlayers(players)
         self.__updatenum_players()
         # generate missing player names
-        for player in g_players:
+        for player in players:
             SoundManager.create_player_sound(player)
-
-    def __store_rfid_map(self):
-        with PersistentDict(settings.STORAGE_FILE, 'c', format='json') as dictionary:
-            dictionary[settings.STORAGE_RFIDMAP] = g_rfid_map
 
     def __highlight_rfid(self, dt):
         obj = self.ids.iconRfid
@@ -331,9 +303,9 @@ class RfidSetupScreen(BaseScreen):
         self.current_rfid = rfid
         SoundManager.play(Trigger.RFID)
         # RFID --> player ID
-        player_id = g_rfid_map.get(rfid, None)
+        player_id = PlayerData.get_player_by_rfid(rfid)
         # player ID --> player dict
-        player = get_player_by_id(g_players, player_id)
+        player = PlayerData.get_player_by_id(player_id)
         if player:
             time.sleep(0.5)
             self.current_player = player
@@ -348,15 +320,11 @@ class RfidSetupScreen(BaseScreen):
         view.open()
 
     def add_entry(self):
-        global g_rfid_map
-        g_rfid_map[self.current_rfid] = self.current_player.get('id')
-        self.__store_rfid_map()
+        PlayerData.add_rfid(self.current_rfid, self.current_player.get('id'))
         self.__reset()
 
     def remove_entry(self):
-        global g_rfid_map
-        g_rfid_map.pop(self.current_rfid)
-        self.__store_rfid_map()
+        PlayerData.remove_rfid(self.current_rfid)
         self.__reset()
 
     def __reset(self):
@@ -414,7 +382,7 @@ class WaitingOverlay(Widget, OnPropertyAnimationMixin):
 
     @mainthread
     def __cycle_dots(self, dt):
-        self.dots_count = (self.dots_count + 1 ) % 4
+        self.dots_count = (self.dots_count + 1) % 4
 
 class HighlightOverlay(object):
 
@@ -458,7 +426,7 @@ class LoungeScreen(BaseScreen):
     def on_enter(self):
         Clock.schedule_once(lambda dt: self.__setup_player_dropdown(), 0.2)
         self.current_player_slot = 0
-        
+
     def on_leave(self):
         self.close_dropdown()
 
@@ -476,16 +444,15 @@ class LoungeScreen(BaseScreen):
             self.dropdown_player.bind(on_select=self.on_player_select)
             self.dropdown_player.bind(on_dismiss=self.on_dropdown_dismiss)
 
-            players = sorted(g_players, key=lambda player: player['name'])
+            players = sorted(PlayerData.get_players(), key=lambda player: player['name'])
             for player in players:
                 btn = PlayerButton(data=player)
                 btn.bind(on_release=lambda btn: self.dropdown_player.select(btn.data))
                 self.dropdown_player.add_widget(btn)
 
-            
     def on_dropdown_dismiss(self, instance):
         self.is_dropdown_open = False
-        
+
     def open_dropdown(self, slot_id):
         if not self.is_dropdown_open:
             obj = self.ids['p' + str(slot_id)]
@@ -495,15 +462,14 @@ class LoungeScreen(BaseScreen):
     def close_dropdown(self):
         if self.is_dropdown_open:
             self.dropdown_player.dismiss()
-            
-    # player was selected from dropdown list
+
     def on_player_select(self, instance, data):
+        # player was selected from dropdown list
         self.dropdown_player.dismiss()
         self.set_player(data)
 
     def on_players(self, instance, value):
-        global game_data
-        game_data.set_players(value)
+        GameData.set_players(value)
         count_players = 0
         for player in self.players:
             count_players = count_players + (1 if player else 0)
@@ -514,16 +480,17 @@ class LoungeScreen(BaseScreen):
 
     def __handle_rfid(self, rfid):
         # RFID --> player ID
-        player_id = g_rfid_map.get(rfid, None)
+        player_id = PlayerData.get_player_by_rfid(rfid)
         # player ID --> player dict
-        player = get_player_by_id(g_players, player_id)
+        player = PlayerData.get_player_by_id(player_id)
         Logger.info('ScoreTracker: RFID: {0} - ID: {1} - Player: {2}'.format(rfid, player_id, player))
         # player does not exist
         if player == None:
             self.denied()
         # player does exist
         else:
-            self.dropdown_player.dismiss()
+            if self.dropdown_player:
+                self.dropdown_player.dismiss()
             self.set_player(player)
 
     def highlight_player(self, slot_id):
@@ -535,39 +502,45 @@ class LoungeScreen(BaseScreen):
         for player_id in [slot_id_1, slot_id_2]:
             self.highlight_player(player_id)
         SoundManager.play(Trigger.PLAYERS_SWITCHED)
+
+    def get_slot_collision(self, event):
+        slot_id = None
+        colliding = False
+        for i in range(0, 4):
+            obj = self.ids['p' + str(i)]
+            collide = obj.collide_point(event.pos[0], event.pos[1])
+            if collide:
+                slot_id = i
+        return slot_id
         
-    # a slot was pressed
-    def handle_slot_touch_down(self, event, slot_id):
-        self.slot_touch = {'source_id': slot_id, 'source_pos': event.pos, 'target_id': slot_id, 'dist': 0.0}
-        self.drag_start_id = slot_id
-        self.dragging = False
-        #print 'down', self.slot_touch
-        
-    # a slot was dragged
+    def handle_slot_touch_down(self, event):
+        # check if slot was pressed
+        colliding_slot_id = self.get_slot_collision(event)
+        if colliding_slot_id is not None:
+            self.slot_touch = {'source_id': colliding_slot_id, 'source_pos': event.pos, 'target_id': colliding_slot_id, 'dist': 0.0}
+            self.drag_start_id = colliding_slot_id
+            self.dragging = False
+            #print 'down', self.slot_touch
+
     def handle_slot_touch_move(self, event):
+        # a slot was dragged
         if self.slot_touch:
             dx = abs(self.slot_touch['source_pos'][0] - event.pos[0])
             dy = abs(self.slot_touch['source_pos'][1] - event.pos[1])
             dist = math.sqrt(dx * dx + dy * dy)
             self.slot_touch['dist'] = dist
             self.dragging = (dist > 10.0)
-            
-            # check collisions
-            colliding = False
-            for i in range(0, 4):
-                obj = self.ids['p' + str(i)]
-                collide = obj.collide_point(event.pos[0], event.pos[1])
-                if collide:
-                    self.slot_touch['target_id'] = i
-                    self.drag_stop_id = i
-                    colliding = True
-
-            if not colliding:
+            # check collision
+            colliding_slot_id = self.get_slot_collision(event)
+            if colliding_slot_id is not None:
+                self.slot_touch['target_id'] = colliding_slot_id
+                self.drag_stop_id = colliding_slot_id
+            else:
                 self.slot_touch['target_id'] = None
                 self.drag_stop_id = -1
 
             #print 'move', self.slot_touch
-                    
+
     # a slot was released
     def handle_slot_touch_up(self, event):
         if self.slot_touch:
@@ -592,7 +565,6 @@ class LoungeScreen(BaseScreen):
                 if self.slot_touch['target_id'] is not None:
                     self.switch_players(self.slot_touch['source_id'], self.slot_touch['target_id'])
 
-            # TODO: switch players
             self.slot_touch = None
             self.drag_start_id = -1
             self.drag_stop_id = -1
@@ -634,7 +606,7 @@ class STModalView(BoxLayout):
     title = StringProperty("")
     text = StringProperty("")
 
-    def __init__(self, title, text, cb_yes = None, cb_no = None, **kwargs):
+    def __init__(self, title, text, cb_yes=None, cb_no=None, **kwargs):
         super(STModalView, self).__init__(**kwargs)
         self.title = title
         self.text = text
@@ -659,6 +631,7 @@ class MatchScreen(BaseScreen):
     players = ListProperty([{}] * 4)
     elo = NumericProperty(0.0)
     kickoff_team = NumericProperty(-1)
+    kickoff_angle = NumericProperty(0)
 
     MAX_GOALS = 6
     MIN_SCORE_MOVE_PX = 100
@@ -679,24 +652,41 @@ class MatchScreen(BaseScreen):
     def on_enter(self):
         self.__reset()
         self.state = 'running'
-        
         self.start_time = time.time()
-        global game_data
-        self.players = game_data.get_players()
+        self.players = GameData.get_players()
         self.__set_submit_icon(icons.cloud_upload)
-        Clock.schedule_interval(self.__update_match_timer, 0.5)
+        Clock.schedule_interval(self.__update_match_timer, 1.0)
+        self.handle_kickoff(True)
 
-        # randomly define kick off team
-        self.kickoff_team = random.randint(0, 1)
+    def handle_kickoff(self, say_player):
+        if not GameData.is_match_finished():
+            delay = 1.0
+            Clock.schedule_once(self.__animate_kickoff, delay)
+            if say_player:
+                SoundManager.play(Trigger.GAME_START, self.players[GameData.get_kickoff_team() * 2])
 
-        Clock.schedule_interval(self.__highlight_kickoff, 2.0)
+    def __animate_kickoff(self, dt):
+        # animate ball
+        obj = self.ids['kickoff_ball']
+        x_current = obj.pos[0]
+        x_target = obj.parent.x + (0.0 if GameData.get_kickoff_team() == 0 else obj.parent.width)
+        y_high = obj.parent.y + 1.5 * obj.parent.height
+        y_low = obj.parent.y + obj.parent.height / 2.0
 
-        SoundManager.play(Trigger.GAME_START, self.players[self.kickoff_team * 2])
+        uptime_ratio = 0.3
+        duration = 1.5
+        duration_up = uptime_ratio * duration
+        duration_down = (1.0 - uptime_ratio) * duration
+        anim = Animation(x=x_current + uptime_ratio * (x_target - x_current), d=duration_up, t='linear') & Animation(y=y_high, d=duration_up, t='out_quad')
+        anim += Animation(x=x_target, d=duration_down, t='out_quad') & Animation(y=y_low, d=duration_down, t='out_bounce')
+        anim.start(obj)
+        Clock.schedule_once(self.__animate_rotation, 0)
+        Clock.schedule_once(lambda dt: Clock.unschedule(self.__animate_rotation), duration)
 
-    def __highlight_kickoff(self, dt):
-        # fetch kickoff player label
-        obj = self.ids['label' + ('Home' if self.kickoff_team == 0 else 'Away')]
-        HighlightOverlay(orig_obj=obj, parent=self).animate(font_size=500, color=(0.7, 1, 0.5, 0), d=2.0)
+    def __animate_rotation(self, dt):
+        direction = 1.0 if GameData.get_kickoff_team() == 0 else -1.0
+        self.kickoff_angle += 15.0 * direction
+        Clock.schedule_once(self.__animate_rotation, 0.04)
 
     def on_leave(self):
         self.__reset()
@@ -719,13 +709,11 @@ class MatchScreen(BaseScreen):
             self.manager.current = 'lounge'
 
     def on_score(self, instance, value):
-        # deactivate kickoff highlighting 
-        if self.kickoff_team in [0, 1]:
-            self.kickoff_team = -1
-            Clock.unschedule(self.__highlight_kickoff)
+        # update kickoff information
+        self.handle_kickoff(False)
         # check max goal during match
         if self.state == 'running':
-            if value[0] >= self.MAX_GOALS or value[1] >= self.MAX_GOALS:
+            if GameData.is_match_finished():
                 self.state = 'finished'
                 SoundManager.play(Trigger.GAME_END)
         # manual swiping can resume a finished match
@@ -735,7 +723,7 @@ class MatchScreen(BaseScreen):
 
     def __reset(self):
         self.state = ''
-        self.score = [0, 0]
+        GameData.reset_match()
         self.set_custom_text('00:00')
         self.ids.topbar.customlabel.opacity = 1
         self.ids.btnSubmit.blocking = False
@@ -744,16 +732,17 @@ class MatchScreen(BaseScreen):
         self.kickoff_team = -1
         self.elo = 0.0
         Clock.unschedule(self.__update_match_timer)
-        Clock.unschedule(self.__highlight_kickoff)
+        Clock.unschedule(self.__animate_kickoff)
 
     def __handle_goal(self, team):
         if team == '1':
-            self.score[0] += 1
+            GameData.add_goal(0)
             obj = self.ids.labelHome
         else:
-            self.score[1] += 1
+            GameData.add_goal(1)
             obj = self.ids.labelAway
 
+        self.score = GameData.get_score()
         HighlightOverlay(orig_obj=obj, parent=self).animate(font_size=500, color=(1, 1, 1, 0), d=2.0)
         SoundManager.play(Trigger.GOAL)
 
@@ -789,18 +778,21 @@ class MatchScreen(BaseScreen):
             score_id = self.score_touch['id']
             dist = event.pos[1] - self.score_touch['startPos']
             if abs(dist) > self.MIN_SCORE_MOVE_PX:
-                score_diff = 1 if dist > 0 else -1;
-                # swipe down: only if not 0 and if opp score is not 6
-                allowed = (score_diff == -1 and self.score[score_id] > 0 and self.score[1 - score_id] != self.MAX_GOALS )
-                # swipe up: only if no one scored 6 goals
-                allowed |= (score_diff == 1 and self.MAX_GOALS not in self.score)
-                if allowed:
-                    self.score[score_id] += score_diff
+                goal_up = dist > 0
+                if goal_up:
+                    swipe_allowed = GameData.add_goal(score_id)
+                else:
+                    swipe_allowed = GameData.revoke_goal(score_id)
+                if swipe_allowed:
+                    self.score = GameData.get_score()
                     HighlightOverlay(orig_obj=self.score_objects[score_id], parent=self).animate(font_size=500, color=(1, 1, 1, 0))
-                    if score_diff == 1:
+                    if goal_up:
                         SoundManager.play(Trigger.GOAL)
                     else:
                         SoundManager.play(Trigger.OFFSIDE)
+                else:
+                    # TODO: "Rote Karte"
+                    pass
             self.score_objects[score_id].color = (1, 1, 1, 1)
         self.score_touch = None
 
@@ -853,10 +845,10 @@ class MatchScreen(BaseScreen):
 
     def show_elo(self):
         self.state = 'elo'
-                
+
     def __submit_score_thread(self):
         # submit score to remote server
-        (error, elo) = ServerCom.submit_score(self.players, self.score)
+        (error, elo) = ServerCom.submit_score(self.players, GameData.get_score())
         if error is None:
             self.submit_success = True
             self.elo = elo

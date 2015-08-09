@@ -16,7 +16,10 @@
 #:set color_red_12      (1.000, 0.000, 0.000, 0.188) # rgba('FF000030')
 #:set color_blue_12     (0.000, 0.000, 1.000, 0.188) # rgba('0000FF30')
 #:set color_dragging    (0.040, 0.450, 0.500, 1.000)
-#:set color_blueish_90 (0.187, 0.637, 0.875, 0.900) # rgba('30A3E0E6')
+#:set color_blueish_90  (0.187, 0.637, 0.875, 0.900) # rgba('30A3E0E6')
+#:set color_disconnected (0.320, 0.210, 0.210, 1.000)
+#:set color_connected   (0.000, 1.000, 0.000, 1.000)
+
 
 <Label>:
 	font_name: settings.KIVY_DEFAULT_FONT
@@ -120,7 +123,7 @@
 			orientation: 'lr-tb'
 			padding: 13
 			IconLabel:
-				text: icons.plug
+				text: icons.wifi
 				font_size: 25
 				color: color_white_100
 				width: 60
@@ -197,6 +200,7 @@
 
 	size_hint_y: 0.20
 	orientation: 'horizontal'
+	# back button
 	IconButton:
 		iconLeft: True
 		icon: icons.back
@@ -207,12 +211,32 @@
 		on_press: root.parent.parent.on_back()
 		opacity: (1.0 if root.hasBack else 0.0)
 		size_hint_x: 0.175
-	Label:
-		text: root.title
-		font_size: 35
-		bold: True
-		color: color_white_100
+	# title + network info
+	AnchorLayout:
+		anchor_x: 'center'
+		anchor_y: 'center'
 		size_hint_x: 0.65
+		Label:
+			text: root.title
+			font_size: 35
+			bold: True
+			color: color_white_100
+			size_hint_x: 1
+		AnchorLayout:
+			anchor_x: 'right'
+			anchor_y: 'center'
+			Button:
+				size_hint_x: 0.25
+				background_color: (0,0,0,0)
+				on_press: root.network_info_pressed()
+				StackLayout:
+					pos: self.parent.pos
+					size: self.parent.size
+					IconLabel:
+						text: icons.wifi
+						font_size: 35
+						bold: True
+						color: color_connected if root.network_info['connected'] else color_disconnected
 	AnchorLayout:
 		anchor_x: 'right'
 		anchor_y: 'center'
@@ -495,9 +519,9 @@
 					origin: self.center
 			canvas.after:
 				PopMatrix
-		text: icons.exchange
-		font_size: 40
-		color: color_white_100
+			text: icons.exchange
+			font_size: 40
+			color: color_white_100
 
 <TeamLabel@StackLayout>:
 	labelText: ''
@@ -526,78 +550,67 @@
 	SubPageLayout:
 		TopBar:
 			id: topbar
-	GridLayout:
-		canvas.before:
-			Color:
-				rgba: color_dark_95
-			Rectangle:
-				pos: self.pos
-				size: self.size
-			Color:
-				rgba: color_white_100
-		cols: 2
-		padding: 30
-		spacing: 10
-		TeamLabel:
-			labelText: 'Team 1'
-			labelColor: color_red_12
-			iconLeft: True
-			teamid: 0
-		TeamLabel:
-			labelText: 'Team 2'
-			labelColor: color_blue_12
-			iconLeft: False
-			teamid: 1
-		PlayerSlot:
-			myid: 0
-			id: p0
-			active: root.current_player_slot == self.myid
-			dragging: (root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid))
-			playerPos: 'Angreifer'
-			playerName: root.players[self.myid].get('name', '---')
-			iconText: icons.attacker
-			iconLeft: True
-			on_touch_down: root.handle_slot_touch_down(args[1], self.myid)
+		GridLayout:
+			canvas.before:
+				Color:
+					rgba: color_dark_95
+				Rectangle:
+					pos: self.pos
+					size: self.size
+				Color:
+					rgba: color_white_100
+			cols: 2
+			padding: 30
+			spacing: 10
+			on_touch_down: root.handle_slot_touch_down(args[1])
 			on_touch_move: root.handle_slot_touch_move(args[1])
 			on_touch_up:   root.handle_slot_touch_up(args[1])
-
-		PlayerSlot:
-			myid: 2
-			id: p2
-			active: root.current_player_slot == self.myid
-			dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
-			playerPos: 'Angreifer'
-			playerName: root.players[self.myid].get('name', '---')
-			iconText: icons.attacker
-			iconLeft: False
-			on_touch_down: root.handle_slot_touch_down(args[1], self.myid)
-			on_touch_move: root.handle_slot_touch_move(args[1])
-			on_touch_up: root.handle_slot_touch_up(args[1])
-
-		PlayerSlot:
-			myid: 1
-			id: p1
-			active: root.current_player_slot == self.myid
-			dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
-			playerPos: 'Verteidiger'
-			playerName: root.players[self.myid].get('name', '---')
-			iconText: icons.defender
-			iconLeft: True
-			on_touch_down: root.handle_slot_touch_down(args[1], self.myid)
-			on_touch_move: root.handle_slot_touch_move(args[1])
-			on_touch_up:   root.handle_slot_touch_up(args[1])
-		PlayerSlot:
-			myid: 3
-			id: p3
-			active: root.current_player_slot == self.myid
-			dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
-			playerPos: 'Verteidiger'
-			playerName: root.players[self.myid].get('name', '---')
-			iconText: icons.defender
-			iconLeft: False
-			on_touch_down: root.handle_slot_touch_down(args[1], self.myid)
-			on_touch_move: root.handle_slot_touch_move(args[1])
-			on_touch_up:   root.handle_slot_touch_up(args[1])
+			TeamLabel:
+				labelText: 'Team 1'
+				labelColor: color_red_12
+				iconLeft: True
+				teamid: 0
+			TeamLabel:
+				labelText: 'Team 2'
+				labelColor: color_blue_12
+				iconLeft: False
+				teamid: 1
+			PlayerSlot:
+				myid: 0
+				id: p0
+				active: root.current_player_slot == self.myid
+				dragging: (root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid))
+				playerPos: 'Angreifer'
+				playerName: root.players[self.myid].get('name', '---')
+				iconText: icons.attacker
+				iconLeft: True
+			PlayerSlot:
+				myid: 2
+				id: p2
+				active: root.current_player_slot == self.myid
+				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
+				playerPos: 'Angreifer'
+				playerName: root.players[self.myid].get('name', '---')
+				iconText: icons.attacker
+				iconLeft: False
+			PlayerSlot:
+				myid: 1
+				id: p1
+				active: root.current_player_slot == self.myid
+				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
+				playerPos: 'Verteidiger'
+				playerName: root.players[self.myid].get('name', '---')
+				iconText: icons.defender
+				iconLeft: True
+			PlayerSlot:
+				myid: 3
+				id: p3
+				active: root.current_player_slot == self.myid
+				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
+				playerPos: 'Verteidiger'
+				playerName: root.players[self.myid].get('name', '---')
+				iconText: icons.defender
+				iconLeft: False
 
 
 <ScoreLabel@Label>:
@@ -695,7 +708,6 @@
 						playerName: root.players[0].get('name', '---')
 						iconText: icons.attacker
 						iconLeft: True
-						highlight: root.kickoff_team == 0
 					MatchPlayerLabel:
 						id: player1
 						playerName: root.players[1].get('name', '---')
@@ -704,6 +716,25 @@
 				# submit button / ELO result
 				AnchorLayout:
 					size_hint_x: 0.3
+					FloatLayout:
+#						pos: parent.pos
+#						size: parent.size
+						IconLabel:
+							canvas.before:
+								PushMatrix
+								Rotate:
+									angle: root.kickoff_angle
+									axis: 0, 0, 1
+									origin: self.center
+							canvas.after:
+								PopMatrix
+							id: kickoff_ball
+							text: icons.football
+							color: color_white_100
+							size_hint: (0.1, 0.1)
+							pos: (self.parent.x + self.parent.width / 2.0, self.parent.y + self.parent.height)
+							font_size: 40
+							opacity: 1.0 if (root.state == 'running') else 0.0
 					IconButton:
 						id: btnSubmit
 						iconColor: (0, 1, 0, 0.8) if root.state == 'submit_success' else (1, 0, 0, 0.8) if root.state == 'submit_failed' else (1, 0.8, 0.8, 0.8)
@@ -736,7 +767,6 @@
 						playerName: root.players[2].get('name', '---')
 						iconText: icons.attacker
 						iconLeft: False
-						highlight: root.kickoff_team == 1
 					MatchPlayerLabel:
 						id: player3
 						playerName: root.players[3].get('name', '---')

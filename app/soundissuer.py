@@ -1,5 +1,4 @@
 from kivy.logger import Logger
-from kivy.clock import Clock
 import subprocess
 import threading
 import shlex
@@ -14,8 +13,8 @@ class SoundIssuer(object):
         if not os.path.isfile(path):
             Logger.warning('SoundIssuer: Sound file not found: %s' % path)
         else:
-            t = threading.Thread(target=self.__runExternalCmd, args=(path, volume, loop, delay))
-            t.start()
+            play_thread = threading.Thread(target=self.__run_external_cmd, args=(path, volume, loop, delay))
+            play_thread.start()
 #            self.__runExternalCmd(path, volume, loop, delay)
 
     def stop_loop(self):
@@ -24,13 +23,13 @@ class SoundIssuer(object):
             self.loop_obj.wait()
             self.loop_obj = None
 
-    def __runExternalCmd(self, path, volume, loop, delay):
+    def __run_external_cmd(self, path, volume, loop, delay):
         if loop:
             self.stop_loop()
             loop_stmt = '1E6'
         else:
             loop_stmt = '0'
         cmd = "play -q -V1 --volume {0} \"{1}\" repeat {2} delay {3} {3}".format(volume, path, loop_stmt, delay)
-        p = subprocess.Popen(shlex.split(cmd))
+        process = subprocess.Popen(shlex.split(cmd))
         if loop:
-            self.loop_obj = p
+            self.loop_obj = process
