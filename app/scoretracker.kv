@@ -371,6 +371,7 @@
 
 
 <SettingsScreen>:
+	volslider: volslider
 	SubPageLayout:
 		TopBar:
 			id: topbar
@@ -384,6 +385,20 @@
 				Color:
 					rgba: color_white_100
 			cols: 2
+			padding: 30
+			spacing: 10
+			Label:
+				text: 'Volume'
+				font_size: 40
+				size_hint_x: 0.3
+				size_hint_y: None
+				height: 50
+			Slider:
+				id: volslider
+				min: 0
+				max: 100
+				value: root.volume
+				step: 1
 
 
 <WaitingOverlay>:

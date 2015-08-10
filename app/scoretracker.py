@@ -27,6 +27,7 @@ import threading
 import time
 import os
 import math
+import alsaaudio
 
 from hardwarelistener import HardwareListener
 from soundmanager import SoundManager, Trigger
@@ -325,11 +326,17 @@ class RfidSetupScreen(BaseScreen):
 
 
 class SettingsScreen(BaseScreen):
+    volume = NumericProperty(0)
 
     def __init__(self, **kwargs):
         super(SettingsScreen, self).__init__(**kwargs)
         self.set_title('Einstellungen')
+        self.mixer = alsaaudio.Mixer()
+        self.volume = self.mixer.getvolume()[0]
+        self.ids.volslider.bind(value=self.on_volume)
 
+    def on_volume(self, instance, value):
+        self.mixer.setvolume(int(value))
 
 class WaitingOverlay(Widget, OnPropertyAnimationMixin):
 
