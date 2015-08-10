@@ -45,8 +45,9 @@ class BackgroundScreenManager(ScreenManager):
 
         # setup hardware listener
         self.hwlistener = HardwareListener()
-        Clock.schedule_interval(self.callback, 1/30.0)
+        self.hwlistener.register(self.receive_msg)
 
+        # setup network status
         NetworkInfo.start_polling()
 
         # setup screens
@@ -58,22 +59,12 @@ class BackgroundScreenManager(ScreenManager):
 
         SoundManager.play(Trigger.INTRO)
 
-        # fancy animation
-#        anim = Animation(opacity=1.0, t='out_cubic', d=1.0).start(self)
-#        anim.bind(on_complete=self.fade_in_done)
-#        anim.start(self)
+    def receive_msg(self, msg):
+        if 'trigger' in msg and 'data' in msg:
+            self.current_screen.process_message(msg)
 
-#    def fade_in_done(self, anim, obj):
-#        Logger.info('value = %s' % value)
-#        anim = Animation(d=2.0)
-#        anim += Animation(opacity=0, d=1.0)
-#        anim.start(self.btn)
-
-    def callback(self, dt):
-        msg = self.hwlistener.read()
-        if msg != None:
-            if 'trigger' in msg and 'data' in msg:
-                self.current_screen.process_message(msg)
+    def stop(self):
+        self.hwlistener.stop()
 
 
 class TopBar(BoxLayout):
@@ -724,9 +715,12 @@ class MatchScreen(BaseScreen):
     def __reset(self):
         self.state = ''
         GameData.reset_match()
+        self.score = GameData.get_score()
         self.set_custom_text('00:00')
         self.ids.topbar.customlabel.opacity = 1
         self.ids.btnSubmit.blocking = False
+        container = self.ids.kickoff_ball.parent
+        self.ids.kickoff_ball.pos = (container.x + container.width / 2.0, container.y + container.height)
         self.score_touch = None
         self.players = [{}] * 4
         self.kickoff_team = -1
@@ -860,15 +854,20 @@ class MatchScreen(BaseScreen):
 
 class ScoreTrackerApp(App):
 
+    def __init__(self, **kwargs):
+        super(ScoreTrackerApp, self).__init__(**kwargs)
+        self.bsm = None
+
     def build(self):
         # register fonts
         for font in settings.KIVY_FONTS:
             LabelBase.register(**font)
 
-        return BackgroundScreenManager()
+        self.bsm = BackgroundScreenManager()
+        return self.bsm
 
     def on_stop(self):
-        pass
+        self.bsm.stop()
 
 
 if __name__ == '__main__':
