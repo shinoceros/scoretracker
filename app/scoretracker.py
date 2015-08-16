@@ -78,8 +78,32 @@ class TopBar(BoxLayout):
     rect_h = NumericProperty(0.0)
     network_info = DictProperty({'connected': False})
 
-    def network_info_pressed(self):
-        NetworkInfo.say_connection_status()
+    def __init__(self, **kwargs):
+        super(TopBar, self).__init__(**kwargs)
+        self.network_btn_long_press = False
+
+    def __network_btn_long_press(self, dt):
+        self.network_btn_long_press = True
+        NetworkInfo.reconnect()
+
+    def check_network_button_collision(self, event):
+        obj = self.ids['btn_network']
+        return obj.collide_point(event.pos[0], event.pos[1])
+
+    def handle_touch_down(self, event):
+        if self.check_network_button_collision(event):
+            Clock.unschedule(self.__network_btn_long_press)
+            Clock.schedule_once(self.__network_btn_long_press, 1.0)
+
+    def handle_touch_up(self, event):
+        if self.check_network_button_collision(event):
+            Clock.unschedule(self.__network_btn_long_press)
+
+    def network_btn_pressed(self):
+        if not self.network_btn_long_press:
+            NetworkInfo.say_connection_status()
+        else:
+            self.network_btn_long_press = False
 
 class ButtonSound(ButtonBehavior):
     pass
@@ -522,7 +546,6 @@ class LoungeScreen(BaseScreen):
             self.slot_touch = {'source_id': colliding_slot_id, 'source_pos': event.pos, 'target_id': colliding_slot_id, 'dist': 0.0}
             self.drag_start_id = colliding_slot_id
             self.dragging = False
-            #print 'down', self.slot_touch
 
     def handle_slot_touch_move(self, event):
         # a slot was dragged
@@ -541,12 +564,9 @@ class LoungeScreen(BaseScreen):
                 self.slot_touch['target_id'] = None
                 self.drag_stop_id = -1
 
-            #print 'move', self.slot_touch
-
     # a slot was released
     def handle_slot_touch_up(self, event):
         if self.slot_touch:
-            #print 'up', self.slot_touch
             # release on same slot
             if self.slot_touch['source_id'] == self.slot_touch['target_id']:
                 # started in this slot: toggle dropdown

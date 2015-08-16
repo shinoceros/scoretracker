@@ -57,6 +57,10 @@ class NetworkInfoBase(object):
             for cb_function in self.callbacks:
                 cb_function(self.get_data())
 
+    def reconnect(self):
+        cmd = 'wpa_cli disconnect && wpa_cli reconnect'
+        proc = subprocess.Popen(cmd, shell=True)
+
     def get_data(self): 
         if self.player is not None:
             hostname = self.player['name']

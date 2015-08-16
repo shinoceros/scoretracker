@@ -179,16 +179,18 @@
 <TopBar>:
 	title: ''
 	customtext: ''
-    hasBack: True
-    hasNext: False
-    isBackEnabled: True
-    isNextEnabled: False
+	hasBack: True
+	hasNext: False
+	isBackEnabled: True
+	isNextEnabled: False
 	width_button: 165.0
 	customlabel: customlabel
 	rect_x: self.x + (root.width_button if root.hasBack else 0.0)
 	rect_y: self.y + 10.0
 	rect_w:  self.width - (root.width_button if root.hasBack else 0) - (root.width_button if root.hasNext else 0)
 	rect_h:  self.height - 20
+	on_touch_down: root.handle_touch_down(args[1])
+	on_touch_up:   root.handle_touch_up(args[1])
 
 	canvas.before:
 		Color:
@@ -226,9 +228,10 @@
 			anchor_x: 'right'
 			anchor_y: 'center'
 			Button:
+				id: btn_network
 				size_hint_x: 0.25
 				background_color: (0,0,0,0)
-				on_press: root.network_info_pressed()
+				on_release: root.network_btn_pressed()
 				StackLayout:
 					pos: self.parent.pos
 					size: self.parent.size
