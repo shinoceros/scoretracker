@@ -335,7 +335,12 @@ class SettingsScreen(BaseScreen):
         self.ids.volslider.bind(value=self.on_volume)
 
     def on_volume(self, instance, value):
-        self.mixer.setvolume(int(value))
+        if value > 0:
+            log_arg = int(25.4850887934 * math.log(value) - 16.4675854274)
+            log_arg = max(0, min(100, log_arg))
+        else:
+            log_arg = 0
+        self.mixer.setvolume(log_arg)
 
 class WaitingOverlay(Widget, OnPropertyAnimationMixin):
 
