@@ -1,13 +1,22 @@
+from kivy.properties import ListProperty
+from kivy.event import EventDispatcher
+
 from random import randint
 
-class GameDataBase(object):
-    def __init__(self):
-        self.history = []
+class GameDataBase(EventDispatcher):
+    score = ListProperty([0, 0])
+    history = ListProperty([])
+    players = [{}] * 4
+    
+    def __init__(self, **kwargs):
+        super(GameDataBase, self).__init__(**kwargs)
         self.initial_kickoff_team = 0
         self.MAX_GOALS = 6
         self.reset_match()
-        self.players = [{}] * 4
-    
+
+    def on_history(self, instance, value):
+        self.score = self.get_score()
+        
     def set_players(self, players):
         self.players = players
 

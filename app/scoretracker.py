@@ -46,7 +46,7 @@ class BackgroundScreenManager(ScreenManager):
 
         # setup hardware listener
         self.hwlistener = HardwareListener()
-        self.hwlistener.register(self.receive_msg)
+        Clock.schedule_interval(self.callback, 1/30.0)
 
         # setup network status
         NetworkInfo.start_polling()
@@ -60,12 +60,11 @@ class BackgroundScreenManager(ScreenManager):
 
         SoundManager.play(Trigger.INTRO)
 
-    def receive_msg(self, msg):
-        if 'trigger' in msg and 'data' in msg:
-            self.current_screen.process_message(msg)
-
-    def stop(self):
-        self.hwlistener.stop()
+    def callback(self, dt):
+        msg = self.hwlistener.read()
+        if msg != None:
+            if 'trigger' in msg and 'data' in msg:
+                self.current_screen.process_message(msg)
 
 
 class TopBar(BoxLayout):
@@ -274,7 +273,7 @@ class RfidSetupScreen(BaseScreen):
         # fetch players list from remote server
         players = ServerCom.fetch_players()
         if players.__len__() > 0:
-            PlayerData.setPlayers(players)
+            PlayerData.set_players(players)
         self.__updatenum_players()
         # generate missing player names
         for player in players:
@@ -643,6 +642,7 @@ class MatchScreen(BaseScreen):
         self.submit_success = None
         self.thread = None
         self.__reset()
+        GameData.bind(score=self.handle_score)
 
     def __set_submit_icon(self, icon):
         self.ids.btnSubmit.icon = icon
@@ -706,7 +706,9 @@ class MatchScreen(BaseScreen):
         else:
             self.manager.current = 'lounge'
 
-    def on_score(self, instance, value):
+    # callback from GameData
+    def handle_score(self, instance, score):
+        self.score = score
         # update kickoff information
         self.handle_kickoff(False)
         # check max goal during match
@@ -722,7 +724,6 @@ class MatchScreen(BaseScreen):
     def __reset(self):
         self.state = ''
         GameData.reset_match()
-        self.score = GameData.get_score()
         self.set_custom_text('00:00')
         self.ids.topbar.customlabel.opacity = 1
         self.ids.btnSubmit.blocking = False
@@ -743,7 +744,6 @@ class MatchScreen(BaseScreen):
             GameData.add_goal(1)
             obj = self.ids.labelAway
 
-        self.score = GameData.get_score()
         HighlightOverlay(orig_obj=obj, parent=self).animate(font_size=500, color=(1, 1, 1, 0), d=2.0)
         SoundManager.play(Trigger.GOAL)
 
@@ -785,7 +785,6 @@ class MatchScreen(BaseScreen):
                 else:
                     swipe_allowed = GameData.revoke_goal(score_id)
                 if swipe_allowed:
-                    self.score = GameData.get_score()
                     HighlightOverlay(orig_obj=self.score_objects[score_id], parent=self).animate(font_size=500, color=(1, 1, 1, 0))
                     if goal_up:
                         SoundManager.play(Trigger.GOAL)
@@ -874,7 +873,7 @@ class ScoreTrackerApp(App):
         return self.bsm
 
     def on_stop(self):
-        self.bsm.stop()
+        pass
 
 
 if __name__ == '__main__':
