@@ -16,6 +16,7 @@ Install the following packages:
 
 APT packages:
 * sox
+* espeak
 * libasound2-dev
 * libsox-fmt-mp3
 * python-dev
