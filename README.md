@@ -7,6 +7,9 @@ scoretracker
 ```
 sudo apt-get update && sudo apt-get upgrade
 sudo apt-get install git sox espeak libasound2-dev libsox-fmt-mp3 python-dev
+# PIP
+wget https://bootstrap.pypa.io/get-pip.py
+sudo python get-pip.py --no-setuptools --no-wheel
 ```
 
 Install the following packages:
