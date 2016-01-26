@@ -3,9 +3,10 @@ scoretracker
 
 ###Installation
 * Install the latest Raspian image
-* Clone this repository into your Raspberry's home directory:
+
 ```
-git clone https://github.com/shinoceros/scoretracker
+sudo apt-get update && sudo apt-get upgrade
+sudo apt-get install git sox espeak libasound2-dev libsox-fmt-mp3 python-dev
 ```
 
 Install the following packages:
@@ -14,13 +15,6 @@ Install the following packages:
 * [zeromq 4.1.3](http://zeromq.org/intro:get-the-software)
 * [PIP](https://pip.pypa.io/en/latest/installing.html)
 
-APT packages:
-* sox
-* espeak
-* libasound2-dev
-* libsox-fmt-mp3
-* python-dev
-
 PIP packages:
 * cython
 * requests (2.7.0)
@@ -28,3 +22,7 @@ PIP packages:
 * [pyzmq](http://zeromq.org/bindings:python) (14.7.0)
 * pyalsaaudio (0.8.2)
 
+* Clone this repository into your Raspberry's home directory:
+```
+git clone https://github.com/shinoceros/scoretracker
+```
