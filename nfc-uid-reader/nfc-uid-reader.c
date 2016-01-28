@@ -2,6 +2,7 @@
 #include <nfc/nfc.h>
 #include <time.h>
 #include "zhelpers.h"
+#include <unistd.h>
 
 void main(int argc, const char *argv[])
 {
@@ -70,6 +71,35 @@ void main(int argc, const char *argv[])
 					strncpy(last_uid, uid, 8);
 					last_timestamp = timestamp;
 				}
+			}
+		}
+		else // handle error scenario, reopen
+		{
+			nfc_close(pnd);
+			nfc_exit(context);
+
+            usleep(2000000);
+			context = NULL;
+            pnd = NULL;
+
+            nfc_init(&context);
+			if (context == NULL) {
+			    printf("Unable to init libnfc (malloc)\n");
+                break;
+			}
+
+            pnd = nfc_open(context, NULL);
+			if (pnd == NULL) {
+				printf("ERROR: %s\n", "Unable to open NFC device.");
+
+				break;
+			}
+
+			if (nfc_initiator_init(pnd) < 0) {
+				nfc_perror(pnd, "nfc_initiator_init");
+				nfc_close(pnd);
+			    nfc_exit(context);
+			    break;
 			}
 		}
 	}
