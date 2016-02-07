@@ -357,7 +357,7 @@ class SettingsScreen(BaseScreen):
     def __init__(self, **kwargs):
         super(SettingsScreen, self).__init__(**kwargs)
         self.set_title('Einstellungen')
-        self.mixer = alsaaudio.Mixer(u'PCM')
+        self.mixer = alsaaudio.Mixer(settings.ALSA_DEVICE)
         self.volume = self.mixer.getvolume()[0]
         self.ids.volslider.bind(value=self.on_volume)
 

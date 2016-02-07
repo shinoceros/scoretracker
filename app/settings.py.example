@@ -24,6 +24,9 @@ KIVY_FONTS = [
 ]
 KIVY_DEFAULT_FONT = "RobotoCondensed"
 
+# alsa device to be used for volume adjustment (RPi: u'PCM', VM: '')
+ALSA_DEVICE = u'PCM'
+
 # kickermanager server
 SERVER_BASE_URL = "http://<ENTER YOUR KICKERMANAGER BASE DIRECTORY HERE>"
 SERVER_USER_ID = <DEDICATED USER ID>
