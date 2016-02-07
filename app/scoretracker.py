@@ -679,6 +679,7 @@ class MatchScreen(BaseScreen):
         self.thread = None
         self.__reset()
         GameData.bind(score=self.handle_score)
+        NetworkInfo.register(self.__callback_check_failed_submission)
 
     def __set_submit_icon(self, icon):
         self.ids.btnSubmit.icon = icon
@@ -893,6 +894,11 @@ class MatchScreen(BaseScreen):
         else:
             self.submit_success = False
             self.elo = 0.0
+
+    def __callback_check_failed_submission(self, nwinfo):
+        if self.state == 'submit_failed':
+            if nwinfo.get('connected', False):
+                self.submit_score()
 
 class ScoreTrackerApp(App):
 
