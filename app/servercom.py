@@ -1,4 +1,5 @@
 import requests
+import shutil
 import json
 import settings
 from kivy.logger import Logger
@@ -12,7 +13,6 @@ class ServerComBase:
 
     def __post(self, url, data):
         response = self.session.post(url, data=json.dumps(data), timeout=7)
-        print response
         return response
 
     def __login(self):
@@ -71,6 +71,23 @@ class ServerComBase:
             else:
                 return ('Submit failed', None)
 
+        except requests.exceptions.ConnectionError as e:
+            print e
+            return ('Connection error', None)
+        except requests.exceptions.Timeout as e:
+            print e
+            return ('Timeout error', None)
+
+    def fetch_and_store(self, url, path):
+        try:
+            response = requests.get(url, stream=True)
+            if response.status_code == 200:
+                with open(path, 'wb') as fd:            
+                    response.raw.decode_content = True
+                    shutil.copyfileobj(response.raw, fd)
+                return (None, response.raw)
+            else:
+                return ('Invalid return code: {}'.format(response.status_code), None)
         except requests.exceptions.ConnectionError as e:
             print e
             return ('Connection error', None)

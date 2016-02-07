@@ -17,7 +17,7 @@ from kivy.uix.dropdown import DropDown
 from kivy.uix.modalview import ModalView
 from kivy.uix.screenmanager import ScreenManager
 from kivy.uix.screenmanager import Screen
-from kivy.uix.screenmanager import FadeTransition
+from kivy.uix.screenmanager import FadeTransition, NoTransition
 from kivy.uix.widget import Widget
 from kivy.properties import NumericProperty, ObjectProperty, BooleanProperty, ListProperty, StringProperty, DictProperty
 from kivy.animation import Animation
@@ -28,9 +28,11 @@ import time
 import os
 import math
 import alsaaudio
+import random
 
 from hardwarelistener import HardwareListener
 from soundmanager import SoundManager, Trigger
+from thememanager import ThemeManager
 from onpropertyanimationmixin import OnPropertyAnimationMixin
 from servercom import ServerCom
 from networkinfo import NetworkInfo
@@ -42,7 +44,8 @@ class BackgroundScreenManager(ScreenManager):
 
     def __init__(self, **kwargs):
         super(BackgroundScreenManager, self).__init__(**kwargs)
-        self.transition = FadeTransition(duration=0.2)
+        #self.transition = FadeTransition(duration=0.2)
+        self.transition = NoTransition()
 
         # setup hardware listener
         self.hwlistener = HardwareListener()
@@ -439,6 +442,7 @@ class LoungeScreen(BaseScreen):
     drag_start_id = NumericProperty(-1)
     drag_stop_id = NumericProperty(-1)
     dragging = BooleanProperty()
+    allPlayersSet = BooleanProperty()
 
     def __init__(self, **kwargs):
         super(LoungeScreen, self).__init__(**kwargs)
@@ -446,6 +450,7 @@ class LoungeScreen(BaseScreen):
         self.ids.topbar.hasNext = True
         self.is_dropdown_open = False
         self.slot_touch = None
+        self.allPlayersSet = False
 
         self.__reset()
 
@@ -499,7 +504,8 @@ class LoungeScreen(BaseScreen):
         count_players = 0
         for player in self.players:
             count_players = count_players + (1 if player else 0)
-        self.ids.topbar.isNextEnabled = (count_players == 4)
+        self.allPlayersSet = (count_players == 4)
+        self.ids.topbar.isNextEnabled = self.allPlayersSet
 
     def click_player_slot(self, player_slot):
         pass
@@ -527,7 +533,7 @@ class LoungeScreen(BaseScreen):
         self.players[slot_id_1], self.players[slot_id_2] = self.players[slot_id_2], self.players[slot_id_1]
         for player_id in [slot_id_1, slot_id_2]:
             self.highlight_player(player_id)
-        SoundManager.play(Trigger.PLAYERS_SWITCHED)
+        SoundManager.play(Trigger.PLAYERS_SWITCH)
 
     def get_slot_collision(self, event):
         slot_id = None
@@ -613,10 +619,15 @@ class LoungeScreen(BaseScreen):
                     SoundManager.play(Trigger.PLAYER_MOVED)
                 else:
                     # player switches position with another player
-                    SoundManager.play(Trigger.PLAYERS_SWITCHED)
+                    SoundManager.play(Trigger.PLAYERS_SWITCH)
                     self.highlight_player(idx_already_set)
         # advance to next player block
         self.current_player_slot = (self.current_player_slot + 1) % 4
+
+    def randomize_players(self):
+        random.shuffle(self.players)
+        SoundManager.play(Trigger.PLAYERS_SHUFFLE)
+
 
     def process_message(self, msg):
         if msg['trigger'] == 'rfid':

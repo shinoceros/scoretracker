@@ -32,3 +32,9 @@ SERVER_USER_PIN = "<PIN>"
 STORAGE_FILE = 'players.json'
 STORAGE_PLAYERS = 'players'
 STORAGE_RFIDMAP = 'rfidmap'
+
+# TTS
+# TTS_MODE: online: use online tts service, offline: use mbrola + espeak
+TTS_MODE = 'online'
+TTS_ONLINE_URL = u'http://<URL to online TTS service>/?key={key}&text={text}'
+TTS_ONLINE_KEY = '<YOUR PERSONAL API KEY>'

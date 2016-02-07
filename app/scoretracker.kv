@@ -52,7 +52,7 @@
 	menuText: ''
 	sound: Trigger.BUTTON
 
-	background_color: 1, 0.8, 0.8, 0.8
+	background_color: 1, 0.9, 0.8, 0.8
 	background_normal: './assets/images/roundedbutton.png'
 	border: 20, 20, 20, 20
 
@@ -141,12 +141,13 @@
 	iconSize: 25
 	iconRatio: 0.3
 	iconText: ''
-	iconColor: (1, 0.8, 0.8, 0.8)
+	iconColor: (1, 0.9, 0.8, 0.8)
 	iconColorDisabled: (0.8, 0.8, 0.8, 0.8)
 	sound: Trigger.BUTTON
 
 	background_color: self.iconColor if not self.disabled else self.iconColorDisabled
 	background_normal: './assets/images/roundedbutton.png'
+	background_down: './assets/images/roundedbutton.png'
 	background_disabled_normal: './assets/images/roundedbutton.png'
 	border: 20, 20, 20, 20
 
@@ -194,7 +195,7 @@
 
 	canvas.before:
 		Color:
-			rgba: 0.5, 0.4, 0.4, 0.8
+			rgba: 0.5, 0.45, 0.4, 0.8
 		Rectangle:
 			source: './assets/images/bg-title.png'
 			pos:  [self.rect_x, self.rect_y]
@@ -295,7 +296,7 @@
 				Color:
 					rgba: color_white_100
 
-			padding: 30
+			padding: 20
 			orientation: 'vertical'
 			GridLayout:
 				row_force_default: True
@@ -438,8 +439,8 @@
 
 
 <PlayerSlot@SoundButton>:
-	playerPos: ''
 	playerName: ''
+	playerElo: ''
 	iconText: ''
 	iconLeft: True
 	active: False
@@ -467,7 +468,7 @@
 #				rgba: color_white_100
 		IconPlayerSlot:
 			id: icon
-			size_hint_x: 0.3
+			size_hint_x: 0.25
 			text: root.iconText
 			active: root.active
 		BoxLayout:
@@ -477,12 +478,12 @@
 			Label:
 				id: playerName
 				text: root.playerName
-				font_size: 45
+				font_size: 55
 				bold: True
 				size_hint_y: 0.7
 			Label:
-				text: root.playerPos
-				font_size: 16
+				text: root.playerElo
+				font_size: 25
 				bold: False
 				size_hint_y: 0.3
 
@@ -519,28 +520,6 @@
 			bold: True
 			size_hint_y: 0.7
 
-<SwitchPlayersButton@StandardButton>:
-	background_color: (0, 0, 0, 0.4)
-	background_normal: './assets/images/roundedbutton.png'
-	border: 20, 20, 20, 20
-	teamid:
-
-	AnchorLayout:
-		pos: self.parent.pos
-		size: self.parent.size
-		IconLabel:
-			canvas.before:
-				PushMatrix
-				Rotate:
-					angle: 90
-					axis: 0, 0, 1
-					origin: self.center
-			canvas.after:
-				PopMatrix
-			text: icons.exchange
-			font_size: 40
-			color: color_white_100
-
 <TeamLabel@StackLayout>:
 	labelText: ''
 	labelColor: (0, 0, 0, 0)
@@ -561,7 +540,7 @@
 	Label:
 		text: root.labelText
 		bold: True
-		font_size: 40
+		font_size: 30
 		size_hint_x: 1.0
 
 <LoungeScreen>:
@@ -578,7 +557,7 @@
 				Color:
 					rgba: color_white_100
 			cols: 2
-			padding: 30
+			padding: 20
 			spacing: 10
 			on_touch_down: root.handle_slot_touch_down(args[1])
 			on_touch_move: root.handle_slot_touch_move(args[1])
@@ -588,47 +567,74 @@
 				labelColor: color_red_12
 				iconLeft: True
 				teamid: 0
+				size_hint_y: 0.15
 			TeamLabel:
 				labelText: 'Team 2'
 				labelColor: color_blue_12
 				iconLeft: False
 				teamid: 1
+				size_hint_y: 0.15
 			PlayerSlot:
 				myid: 0
 				id: p0
 				active: root.current_player_slot == self.myid
 				dragging: (root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid))
-				playerPos: 'Angreifer'
 				playerName: root.players[self.myid].get('name', '---')
+				playerElo: root.players[self.myid].get('elo', '')
 				iconText: icons.attacker
 				iconLeft: True
+				size_hint_y: 0.3
 			PlayerSlot:
 				myid: 2
 				id: p2
 				active: root.current_player_slot == self.myid
 				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
-				playerPos: 'Angreifer'
 				playerName: root.players[self.myid].get('name', '---')
+				playerElo: root.players[self.myid].get('elo', '')
 				iconText: icons.attacker
 				iconLeft: False
+				size_hint_y: 0.3
 			PlayerSlot:
 				myid: 1
 				id: p1
 				active: root.current_player_slot == self.myid
 				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
-				playerPos: 'Verteidiger'
 				playerName: root.players[self.myid].get('name', '---')
+				playerElo: root.players[self.myid].get('elo', '')
 				iconText: icons.defender
 				iconLeft: True
+				size_hint_y: 0.3
 			PlayerSlot:
 				myid: 3
 				id: p3
 				active: root.current_player_slot == self.myid
 				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
-				playerPos: 'Verteidiger'
 				playerName: root.players[self.myid].get('name', '---')
+				playerElo: root.players[self.myid].get('elo', '')
 				iconText: icons.defender
 				iconLeft: False
+				size_hint_y: 0.3
+			AnchorLayout:
+				size_hint_y: 0.15
+				anchor_x: 'right'
+				IconButton:
+					size_hint_x: 0.4
+					iconLeft: True
+					iconText: 'mischen'
+					icon: icons.random
+					iconRatio: 0.3
+					disabled: False if root.allPlayersSet else True
+					on_press: root.randomize_players()
+			AnchorLayout:
+				size_hint_y: 0.2
+				anchor_x: 'left'
+				IconButton:
+					size_hint_x: 0.4
+					iconLeft: True
+					iconText: 'ausgleichen'
+					icon: icons.balance
+					iconRatio: 0.3
+					disabled: True
 
 
 <ScoreLabel@Label>:
