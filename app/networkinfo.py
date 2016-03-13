@@ -26,9 +26,10 @@ class NetworkInfoBase(object):
 
     def __fetch_data(self, dt):
         cmd = 'wpa_cli status | egrep "(wpa_state|id_str|ip_address)"'
-        proc = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+        proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
+        output = proc.communicate()[0]
         entries = {}
-        for line in iter(proc.stdout.readline, ''):
+        for line in output.splitlines():
             line = line.strip()
             if '=' in line:
                 (key, value) = line.split('=')
