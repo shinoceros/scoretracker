@@ -2,7 +2,6 @@ from kivy.logger import Logger
 import subprocess
 import os
 from enum import Enum
-from threading import Thread
 import glob
 import random
 from collections import deque

@@ -19,10 +19,15 @@ class SoundIssuer(object):
                 self.bg_track = sound
                 self.bg_track.play()
             else:
+                sound.bind(on_stop=self.unload)
                 sound.play()
 
     def play(self, path, volume, loop, delay):
         Clock.schedule_once(lambda dt: self.start_sound(path, volume, loop), delay)
+
+    def unload(self, sound):
+        if sound:
+            sound.unload()
 
     def stop_loop(self):
         if self.bg_track is not None:
