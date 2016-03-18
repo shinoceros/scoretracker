@@ -888,17 +888,20 @@ class MatchScreen(BaseScreen):
         (error, elo) = ServerCom.submit_score(self.players, GameData.get_score())
         if error is None:
             self.submit_success = True
-            self.elo = elo
+            self.__set_elo(elo)
             Logger.info('{}'.format(self.elo))
 
         else:
             self.submit_success = False
-            self.elo = 0.0
 
     def __callback_check_failed_submission(self, nwinfo):
         if self.state == 'submit_failed':
             if nwinfo.get('connected', False):
                 self.submit_score()
+
+    @mainthread
+    def __set_elo(self, elo):
+        self.elo = elo
 
 class ScoreTrackerApp(App):
 
