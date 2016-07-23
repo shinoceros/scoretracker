@@ -9,6 +9,7 @@ from collections import deque
 from soundissuer import SoundIssuer
 from ttswrapper import TtsWrapper
 from mutagen.mp3 import MP3
+from gamedata import GameData
 
 class Trigger(Enum):
     MENU = 0
@@ -44,28 +45,37 @@ class SoundManagerBase(object):
         self.stopped = False
 
         self.map_sound_files = {
-            'intro':   {'type': 'random', 'path': 'intro', 'volume': 0.7},
-            'menu':    {'type': 'random', 'path': 'menu/*', 'volume': 0.7},
-            'whistle': {'type': 'random', 'path': 'whistle_medium', 'volume': 0.8},
-            'kickoff': {'type': 'random', 'path': 'kickoff', 'volume': 1.0},
-            'goal':    {'type': 'random', 'path': 'goal/*', 'volume': 1.0},
-            'offside': {'type': 'random', 'path': 'offside/*', 'volume': 1.0},
-            'stadium': {'type': 'random', 'path': 'stadium/*', 'volume': 0.5},
-            'denied':  {'type': 'random', 'path': 'chime_down2', 'volume': 1.0},
-            'button':  {'type': 'random', 'path': 'chime_medium1', 'volume': 1.0},
-            'back':    {'type': 'random', 'path': 'chime_low1', 'volume': 1.0},
-            'exit':    {'type': 'random', 'path': 'shutdown/*', 'volume': 1.0},
-            'rfid':    {'type': 'random', 'path': 'chime_up3', 'volume': 1.0},
-            'scratch': {'type': 'random', 'path': 'scratch', 'volume': 0.8},
-            'player':  {'type': 'indexed', 'path': 'players/*', 'volume': 1.0},
-            'players_switch': {'type': 'random', 'path': 'players_switch', 'volume': 1.0},
-            'player_moved': {'type': 'random', 'path': 'player_moved', 'volume': 1.0},
-            'players_shuffle': {'type': 'random', 'path': 'players_shuffle', 'volume': 1.0},
+            'intro':            {'type': 'random', 'path': 'intro', 'volume': 0.7},
+            'menu':             {'type': 'random', 'path': 'menu/*', 'volume': 0.7},
+            'whistle':          {'type': 'random', 'path': 'whistle_medium', 'volume': 0.8},
+            'kickoff':          {'type': 'random', 'path': 'kickoff', 'volume': 1.0},
+            'goal':             {'type': 'random', 'path': 'goal/*', 'volume': 1.0},
+            'goal-almost-tie':  {'type': 'random', 'path': 'goal/almost-tie/*', 'volume': 1.0},
+            'goal-tie':         {'type': 'random', 'path': 'goal/tie/*', 'volume': 1.0},
+            'offside':          {'type': 'random', 'path': 'offside/*', 'volume': 1.0},
+            'stadium':          {'type': 'random', 'path': 'stadium/*', 'volume': 0.5},
+            'denied':           {'type': 'random', 'path': 'chime_down2', 'volume': 1.0},
+            'button':           {'type': 'random', 'path': 'chime_medium1', 'volume': 1.0},
+            'back':             {'type': 'random', 'path': 'chime_low1', 'volume': 1.0},
+            'exit':             {'type': 'random', 'path': 'shutdown/*', 'volume': 1.0},
+            'rfid':             {'type': 'random', 'path': 'chime_up3', 'volume': 1.0},
+            'scratch':          {'type': 'random', 'path': 'scratch', 'volume': 0.8},
+            'player':           {'type': 'indexed', 'path': 'players/*', 'volume': 1.0},
+            'players_switch':   {'type': 'random', 'path': 'players_switch', 'volume': 1.0},
+            'player_moved':     {'type': 'random', 'path': 'player_moved', 'volume': 1.0},
+            'players_shuffle':  {'type': 'random', 'path': 'players_shuffle', 'volume': 1.0},
             'hotspot_connect':  {'type': 'random', 'path': 'hotspot', 'volume': 1.0},
             'hotspot_disconnect':  {'type': 'random', 'path': 'no_hotspot', 'volume': 1.0},
-            'trash':  {'type': 'random', 'path': 'trash/*', 'volume': 1.0}
+            'trash':            {'type': 'random', 'path': 'trash/*', 'volume': 1.0}
         }
-        
+
+        # add config for absolute score announcements
+        for i in range(0, 6):
+            for j in range(0, 6):
+                key = 'goal-{}-{}'.format(i, j)
+                path = 'goal/{}/{}/*'.format(i, j)
+                self.map_sound_files[key] = {'type': 'random', 'path': path, 'volume': 1.0}
+
         self.map_trigger = {
             Trigger.INTRO:          [
                                         {'sound': 'intro'},
@@ -173,7 +183,8 @@ class SoundManagerBase(object):
             add_delay = 0.0
             for command in commands:
                 if 'sound' in command:
-                    sound_conf = self.map_sound_files[command['sound']]
+                    sound_type = self.preprocess_command(command['sound'])
+                    sound_conf = self.map_sound_files[sound_type]
                     volume = sound_conf.get('volume', 1.0)
                     loop = command.get('loop', False)
                     stoppable = command.get('stoppable', False)
@@ -197,6 +208,35 @@ class SoundManagerBase(object):
                         delay += add_delay
                 elif 'stoploop' in command:
                     self.sound_issuer.stop_loop()
+
+    def preprocess_command(self, sound_type):
+        ''' special handling for goal sounds'''
+        # skip unless goal
+        if sound_type != 'goal':
+            return sound_type
+
+        # check tie
+        new_type = 'goal-tie'
+        if GameData.is_tie() and self.has_files_for(new_type) and random.random() < 0.3:
+            return new_type
+        # check almost tie
+        new_type = 'goal-almost-tie'
+        if GameData.is_almost_tie() and self.has_files_for(new_type) and random.random() < 0.3:
+            return new_type
+        # check absolute score
+        score = GameData.get_score()
+        new_type = 'goal-{}-{}'.format(score[0], score[1])
+        if self.has_files_for(new_type) and random.random() < 0.3:
+            return new_type
+        # default
+        return 'goal'
+        
+    def has_files_for(self, sound_type):
+        retval = False
+        if sound_type in self.map_sound_files:
+            if 'files' in self.map_sound_files[sound_type]:
+                retVal = True if self.map_sound_files[sound_type]['files'] else False
+        return retVal
 
     def create_player_sound(self, player):
         if 'id' in player:

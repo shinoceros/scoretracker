@@ -42,7 +42,21 @@ class GameDataBase(EventDispatcher):
 
     def is_match_finished(self):
         return self.MAX_GOALS in self.get_score()
-        
+
+    def is_almost_tie(self):
+        almost_tie = False
+        if self.history:
+            score = self.get_score()
+            score_diff = score[0] - score[1]
+            last_scorer = self.history[-1]
+            almost_tie = (score_diff == 1 and last_scorer == 1 or score_diff == -1 and last_scorer == 0)
+        return almost_tie
+
+    def is_tie(self):
+        score = self.get_score()
+        score_diff = score[0] - score[1]
+        return (score_diff == 0)
+
     def get_kickoff_team(self):
         if self.history:
             return 1 - self.history[-1]
