@@ -1,4 +1,5 @@
 from kivy.logger import Logger
+from kivy.clock import Clock
 import subprocess
 import os
 from enum import Enum
@@ -20,7 +21,6 @@ class Trigger(Enum):
     RFID = 7
     PLAYER_JOINED = 8 # data: player dict
     PLAYERS_SWITCH = 9
-    PLAYERS_SHUFFLE = 19
     PLAYER_MOVED = 10
     BUTTON = 11
     BACK = 12
@@ -30,6 +30,8 @@ class Trigger(Enum):
     INTRO = 16
     HOTSPOT_CONNECT = 17
     HOTSPOT_DISCONNECT = 18
+    PLAYERS_SHUFFLE = 19
+    TRASH = 20
 
 class SoundManagerBase(object):
 
@@ -60,7 +62,8 @@ class SoundManagerBase(object):
             'player_moved': {'type': 'random', 'path': 'player_moved', 'volume': 1.0},
             'players_shuffle': {'type': 'random', 'path': 'players_shuffle', 'volume': 1.0},
             'hotspot_connect':  {'type': 'random', 'path': 'hotspot', 'volume': 1.0},
-            'hotspot_disconnect':  {'type': 'random', 'path': 'no_hotspot', 'volume': 1.0}
+            'hotspot_disconnect':  {'type': 'random', 'path': 'no_hotspot', 'volume': 1.0},
+            'trash':  {'type': 'random', 'path': 'trash/*', 'volume': 1.0}
         }
         
         self.map_trigger = {
@@ -90,7 +93,10 @@ class SoundManagerBase(object):
                                         {'sound': 'whistle'}
                                     ],
             Trigger.GOAL:           [
-                                        {'sound': 'goal'}
+                                        {'sound': 'goal', 'stoppable': True}
+                                    ],
+            Trigger.TRASH:           [
+                                        {'sound': 'trash', 'stoppable': True}
                                     ],
             Trigger.DENIED:         [
                                         {'sound': 'denied'}
@@ -109,7 +115,7 @@ class SoundManagerBase(object):
                                         {'sound': 'exit'}
                                     ],
             Trigger.OFFSIDE:        [
-                                        {'sound': 'offside'}
+                                        {'sound': 'offside', 'stoppable': True}
                                     ],
             Trigger.PLAYER_JOINED:  [
                                         {'sound': 'rfid'},
@@ -161,6 +167,7 @@ class SoundManagerBase(object):
         
     def play(self, trigger, param=None):
         if trigger in self.map_trigger:
+            self.handle_trash_talk(trigger)
             commands = self.map_trigger[trigger]
             delay = 0.0
             add_delay = 0.0
@@ -169,6 +176,7 @@ class SoundManagerBase(object):
                     sound_conf = self.map_sound_files[command['sound']]
                     volume = sound_conf.get('volume', 1.0)
                     loop = command.get('loop', False)
+                    stoppable = command.get('stoppable', False)
                     path = ''
                     overlap = command.get('overlap', 0.0)
 
@@ -185,7 +193,7 @@ class SoundManagerBase(object):
 
                     if path != '':
                         delay -= overlap
-                        self.sound_issuer.play(path, volume, loop, delay)
+                        self.sound_issuer.play(path, volume, loop, stoppable, delay)
                         delay += add_delay
                 elif 'stoploop' in command:
                     self.sound_issuer.stop_loop()
@@ -200,5 +208,16 @@ class SoundManagerBase(object):
         
     def player_sound_exists(self, player_id):
         return 
+        
+    def handle_trash_talk(self, trigger):
+        if trigger in [Trigger.GAME_END, Trigger.GAME_PAUSE]:
+            Clock.unschedule(self.trash)
+
+        if trigger in [Trigger.GAME_START, Trigger.GAME_RESUME, Trigger.GOAL]:
+            Clock.unschedule(self.trash)
+            Clock.schedule_interval(self.trash, random.randint(60, 120))
+            
+    def trash(self, dt):
+        self.play(Trigger.TRASH)
                     
 SoundManager = SoundManagerBase()

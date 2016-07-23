@@ -196,23 +196,12 @@ class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
         else:
             self.network_str = 'not connected'
 
-        
-#        if state == 'SCANNING':
-#            self.network_str = 'scanning for networks...'
-#        elif state == 'ASSOCIATED' or (state == 'COMPLETED' and ip_address == ''):
-#            self.network_str = 'connected, fetching IP...'
-#        elif state == 'COMPLETED' and ip_address != '':
-#            self.network_str = 'connected: {} ({})'.format(ip_address, hostname)
-#        else:
-#            self.network_str = 'not connected'
-
     def shutdown(self):
         # final fade out
         self.fadeopacity = 1.0
         Clock.schedule_once(self.shutdown_delayed, 2.0)
 
     def shutdown_delayed(self, dt):
-        #App.get_running_app().stop()
         os.system("sudo shutdown -h 0")
 
 
@@ -892,7 +881,6 @@ class MatchScreen(BaseScreen):
         if error is None:
             self.submit_success = True
             self.__set_elo(elo)
-            Logger.info('{}'.format(self.elo))
 
         else:
             self.submit_success = False
