@@ -15,6 +15,28 @@ class ServerComBase:
         response = self.session.post(url, data=json.dumps(data), timeout=7)
         return response
 
+    def __get(self, url, data):
+        response = self.session.get(url, timeout=7)
+        return response
+
+    def __submit_with_login(self, url, data, fn):
+        try:
+            response = fn(url, data)
+            if response.status_code == 401:
+                # on fail try to login first
+                if self.__login().status_code != 200:
+                    return (False, 'Login failed')
+                # login successful -> send again
+                response = fn(url, data)
+        except requests.exceptions.ConnectionError as e:
+            Logger.error('Connection error: {}'.format(url))
+            return None
+        except requests.exceptions.Timeout as e:
+            Logger.error('Timeout error: {}'.format(url))
+            return None
+
+        return response
+
     def __login(self):
         url = self.base_url + '/auth/login'
         data = {
@@ -22,8 +44,39 @@ class ServerComBase:
             'pin': self.user_pin
         }
         return self.__post(url, data)
+        
+    def fetch_players(self):
+        url = self.base_url + '/player'
+        data = {}
+        response = self.__submit_with_login(url, data, self.__get)
+        players = []
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                for d in data:
+                    if d['active'] == 1:
+                        players.append({'id': d['id'], 'name': d['name']})
+            except ValueError, e:
+                print e
 
-    def __submit_score(self, players, goals):
+        return players
+
+    def fetch_ranking(self, type):
+        url = self.base_url + '/ranking/' + type
+        data = {}
+        response = self.__submit_with_login(url, data, self.__get)
+        ranking = {}
+        if response and response.status_code == 200:
+            try:
+                data = response.json()
+                for d in data:
+                    ranking[d['id']] = {'elo': d['elo']}
+            except ValueError, e:
+                print e
+
+        return ranking
+
+    def submit_score(self, players, goals):
         url = self.base_url + '/match'
         data = {
             'f1': players[0]['id'],
@@ -33,50 +86,14 @@ class ServerComBase:
             'goals1': goals[0],
             'goals2': goals[1]
         }
-        return self.__post(url, data)
+        response = self.__submit_with_login(url, data, self.__post)
 
-    def __convertPlayerData(self, resp):
-        players = []
-        if resp.status_code == 200:
-            try:
-                data = resp.json()
-                for d in data:
-                    if d['active'] == 1:
-                        players.append({'id': d['id'], 'name': d['name']})
-            except ValueError, e:
-                print e
-
-        return players
-        
-    def fetch_players(self):
-        url = self.base_url + '/player'
-        r = self.session.get(url)
-        return self.__convertPlayerData(r)
-
-    def submit_score(self, players, goals):
-        try:
-            # try to submit score
-            response = self.__submit_score(players, goals)
-            if response.status_code == 401:
-                # on fail try to login first
-                if self.__login().status_code != 200:
-                    return ('Login failed', None)
-                # login successful -> submit again
-                response = self.__submit_score(players, goals)
-            
-            if response.status_code == 200:
-                data = response.json()
-                elo = data.get('deltaelo', 0.0)
-                return (None, elo)
-            else:
-                return ('Submit failed', None)
-
-        except requests.exceptions.ConnectionError as e:
-            print e
-            return ('Connection error', None)
-        except requests.exceptions.Timeout as e:
-            print e
-            return ('Timeout error', None)
+        if response and response.status_code == 200:
+            data = response.json()
+            elo = data.get('deltaelo', 0.0)
+            return (None, elo)
+        else:
+            return ('Submit failed', None)
 
     def fetch_and_store(self, url, path):
         try:
@@ -98,4 +115,7 @@ class ServerComBase:
 ServerCom = ServerComBase()
 
 if __name__ == "__main__":
-    print(ServerCom.fetch_players())
+    #print(ServerCom.submit_score([{'id': 1}, {'id': 2}, {'id': 3}, {'id': 4}], [6, 3]))
+    #print(ServerCom.fetch_players())
+    print(ServerCom.fetch_ranking('attacker'))
+    #print(ServerCom.fetch_ranking('defender'))

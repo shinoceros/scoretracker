@@ -9,6 +9,8 @@
 #:set color_dark_95     (0.000, 0.020, 0.000, 0.950) # rgba('000500F3')
 #:set color_white_100   (1.000, 1.000, 1.000, 1.000) # rgba('FFFFFFFF')
 #:set color_white_80    (1.000, 1.000, 1.000, 0.800) # rgba('FFFFFFCC')
+#:set color_elo_bar     (1.000, 1.000, 1.000, 0.150)
+#:set color_elo_value   (1.000, 1.000, 1.000, 0.500)
 #:set color_white_2     (1.000, 1.000, 1.000, 0.020) # rgba('FFFFFF05')
 #:set color_transparent (0.000, 0.000, 0.000, 0.000) # rgba('00000000')
 #:set color_orange_12   (0.800, 0.733, 0.125, 0.125) # rgba('CCBB2020')
@@ -104,7 +106,7 @@
 			MenuButton:
 				menuText: 'Neues Spiel'
 				menuIcon: icons.rocket
-				on_press: root.manager.current = 'lounge'
+				on_press: root.manager.current = 'lineup'
 			MenuButton:
 				menuText: 'Aus'
 				menuIcon: icons.power
@@ -439,12 +441,14 @@
 
 
 <PlayerSlot@SoundButton>:
-	playerName: ''
-	playerElo: ''
-	iconText: ''
+	name: ''
 	iconLeft: True
+	is_attacker: True
+	elo: {'min': 0, 'max': 2000, 'val': 0}
 	active: False
 	dragging: False
+
+	factor: 0.05 + 0.95 * (root.elo['val'] - root.elo['min']) / (root.elo['max'] - root.elo['min'])
 
     sound: Trigger.BUTTON
 	background_normal: ''
@@ -457,39 +461,44 @@
 		size: self.parent.size
 		orientation: 'lr-tb' if root.iconLeft else 'rl-tb'
 		padding: 10
-		# active highlight
-		canvas:
+		canvas.before:
+			# active highlight	
 			Color:
 				rgba: color_dragging if root.dragging else color_orange_12 if root.active else color_white_2
 			Rectangle:
 				pos: self.pos
 				size: self.size
-#			Color:
-#				rgba: color_white_100
+			# elo bar
+			Color:
+				rgba: color_elo_bar
+			Rectangle:
+				pos: (self.x + (1 - root.factor) * self.width if root.iconLeft else self.x, self.y)
+				size: (root.factor * self.width if root.elo['val'] else 0, self.height)
 		IconPlayerSlot:
 			id: icon
 			size_hint_x: 0.25
-			text: root.iconText
+			text: icons.attacker if root.is_attacker else icons.defender
 			active: root.active
 		BoxLayout:
 			size_hint_x: 0.6
 			orientation: 'vertical'
 			spacing: 5
 			Label:
-				id: playerName
-				text: root.playerName
-				font_size: 55
+				id: name
+				text: root.name
+				font_size: 50
 				bold: True
-				size_hint_y: 0.7
+				size_hint_y: 0.55
 			Label:
-				text: root.playerElo
-				font_size: 25
+				text: '{0:.1f}'.format(root.elo['val']) if root.elo['val'] else ''
+				color: color_elo_value
+				font_size: 35
 				bold: False
-				size_hint_y: 0.3
+				size_hint_y: 0.40
 
 <MatchPlayerLabel@StackLayout>:
 	icon: icon
-	playerName: ''
+	name: ''
 	iconText: ''
 	iconLeft: True
 	highlight: False
@@ -515,7 +524,7 @@
 			font_size: 30
 		Label:
 			size_hint_x: 0.6
-			text: root.playerName
+			text: root.name
 			font_size: 30
 			bold: True
 			size_hint_y: 0.7
@@ -525,6 +534,9 @@
 	labelColor: (0, 0, 0, 0)
 	iconLeft: True
 	teamid: 0
+	elo: {'min': 0, 'max': 2000, 'val1': 1000, 'val2': 1000}
+	teamelo: (root.elo['val1'] + root.elo['val2']) / 2.0 if root.elo['val1'] and root.elo['val2'] else 0
+	factor: 0.05 + 0.95 * (root.teamelo - root.elo['min']) / (root.elo['max'] - root.elo['min'])
 
 	orientation: 'lr-tb' if root.iconLeft else 'rl-tb'
 	canvas.before:
@@ -533,8 +545,13 @@
 		Rectangle:
 			pos: self.pos
 			size: self.size
+		# elo bar
 		Color:
-			rgba: color_white_100
+			rgba: color_elo_bar
+		Rectangle:
+			pos: (self.x + (1 - root.factor) * self.width if root.iconLeft else self.x, self.y)
+			size: (root.factor * self.width if root.teamelo else 0, self.height)
+
 	padding: (20, 20)
 	# team label
 	Label:
@@ -543,7 +560,7 @@
 		font_size: 30
 		size_hint_x: 1.0
 
-<LoungeScreen>:
+<LineupScreen>:
 	SubPageLayout:
 		TopBar:
 			id: topbar
@@ -566,12 +583,14 @@
 				labelText: 'Team 1'
 				labelColor: color_red_12
 				iconLeft: True
+				elo: {'min': root.elo_ranges['min'], 'max': root.elo_ranges['max'], 'val1': root.players[0].get('attacker', {}).get('elo', 0), 'val2': root.players[1].get('defender', {}).get('elo', 0) }
 				teamid: 0
 				size_hint_y: 0.15
 			TeamLabel:
 				labelText: 'Team 2'
 				labelColor: color_blue_12
 				iconLeft: False
+				elo: {'min': root.elo_ranges['min'], 'max': root.elo_ranges['max'], 'val1': root.players[2].get('attacker', {}).get('elo', 0), 'val2': root.players[3].get('defender', {}).get('elo', 0) }
 				teamid: 1
 				size_hint_y: 0.15
 			PlayerSlot:
@@ -579,9 +598,9 @@
 				id: p0
 				active: root.current_player_slot == self.myid
 				dragging: (root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid))
-				playerName: root.players[self.myid].get('name', '---')
-				playerElo: root.players[self.myid].get('elo', '')
-				iconText: icons.attacker
+				name: root.players[self.myid].get('name', '---')
+				elo: {'min': root.elo_ranges['min'], 'max': root.elo_ranges['max'], 'val': root.players[self.myid].get('attacker', {}).get('elo', 0)}
+				is_attacker: True
 				iconLeft: True
 				size_hint_y: 0.3
 			PlayerSlot:
@@ -589,9 +608,9 @@
 				id: p2
 				active: root.current_player_slot == self.myid
 				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
-				playerName: root.players[self.myid].get('name', '---')
-				playerElo: root.players[self.myid].get('elo', '')
-				iconText: icons.attacker
+				name: root.players[self.myid].get('name', '---')
+				elo: {'min': root.elo_ranges['min'], 'max': root.elo_ranges['max'], 'val': root.players[self.myid].get('attacker', {}).get('elo', 0)}
+				is_attacker: True
 				iconLeft: False
 				size_hint_y: 0.3
 			PlayerSlot:
@@ -599,9 +618,9 @@
 				id: p1
 				active: root.current_player_slot == self.myid
 				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
-				playerName: root.players[self.myid].get('name', '---')
-				playerElo: root.players[self.myid].get('elo', '')
-				iconText: icons.defender
+				name: root.players[self.myid].get('name', '---')
+				elo: {'min': root.elo_ranges['min'], 'max': root.elo_ranges['max'], 'val': root.players[self.myid].get('defender', {}).get('elo', 0)}
+				is_attacker: False
 				iconLeft: True
 				size_hint_y: 0.3
 			PlayerSlot:
@@ -609,32 +628,33 @@
 				id: p3
 				active: root.current_player_slot == self.myid
 				dragging: root.dragging and (root.drag_start_id == self.myid or root.drag_stop_id == self.myid)
-				playerName: root.players[self.myid].get('name', '---')
-				playerElo: root.players[self.myid].get('elo', '')
-				iconText: icons.defender
+				name: root.players[self.myid].get('name', '---')
+				elo: {'min': root.elo_ranges['min'], 'max': root.elo_ranges['max'], 'val': root.players[self.myid].get('defender', {}).get('elo', 0)}
+				is_attacker: False
 				iconLeft: False
 				size_hint_y: 0.3
 			AnchorLayout:
 				size_hint_y: 0.15
 				anchor_x: 'right'
 				IconButton:
-					size_hint_x: 0.4
+					size_hint_x: 0.45
 					iconLeft: True
 					iconText: 'mischen'
 					icon: icons.random
 					iconRatio: 0.3
-					disabled: False if root.allPlayersSet else True
+					disabled: False if root.allPlayersSet and not root.switching_locked else True
 					on_press: root.randomize_players()
 			AnchorLayout:
 				size_hint_y: 0.2
 				anchor_x: 'left'
 				IconButton:
-					size_hint_x: 0.4
+					size_hint_x: 0.45
 					iconLeft: True
 					iconText: 'ausgleichen'
 					icon: icons.balance
 					iconRatio: 0.3
-					disabled: True
+					disabled: False if root.allPlayersSet and not root.switching_locked else True
+					on_press: root.equalize_players()
 
 
 <ScoreLabel@Label>:
@@ -729,12 +749,12 @@
 					size_hint_x: 0.35
 					MatchPlayerLabel:
 						id: player0
-						playerName: root.players[0].get('name', '---')
+						name: root.players[0].get('name', '---')
 						iconText: icons.attacker
 						iconLeft: True
 					MatchPlayerLabel:
 						id: player1
-						playerName: root.players[1].get('name', '---')
+						name: root.players[1].get('name', '---')
 						iconText: icons.defender
 						iconLeft: True
 				# submit button / ELO result
@@ -788,12 +808,12 @@
 					size_hint_x: 0.35
 					MatchPlayerLabel:
 						id: player2
-						playerName: root.players[2].get('name', '---')
+						name: root.players[2].get('name', '---')
 						iconText: icons.attacker
 						iconLeft: False
 					MatchPlayerLabel:
 						id: player3
-						playerName: root.players[3].get('name', '---')
+						name: root.players[3].get('name', '---')
 						iconText: icons.defender
 						iconLeft: False
 

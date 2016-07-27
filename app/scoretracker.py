@@ -29,6 +29,7 @@ import os
 import math
 import alsaaudio
 import random
+import itertools
 
 from hardwarelistener import HardwareListener
 from soundmanager import SoundManager, Trigger
@@ -58,7 +59,7 @@ class BackgroundScreenManager(ScreenManager):
         self.add_widget(MenuScreen(name='menu'))
         self.add_widget(RfidSetupScreen(name='rfid-setup'))
         self.add_widget(SettingsScreen(name='settings'))
-        self.add_widget(LoungeScreen(name='lounge'))
+        self.add_widget(LineupScreen(name='lineup'))
         self.add_widget(MatchScreen(name='match'))
 
         SoundManager.play(Trigger.INTRO)
@@ -288,12 +289,19 @@ class RfidSetupScreen(BaseScreen):
     def __fetch_players_list_thread(self):
         # fetch players list from remote server
         players = ServerCom.fetch_players()
-        if players.__len__() > 0:
+        if players:
             PlayerData.set_players(players)
         self.__updatenum_players()
         # generate missing player names
         for player in players:
             SoundManager.create_player_sound(player)
+        # fetch ranking
+        ranking_attacker = ServerCom.fetch_ranking('attacker')
+        if ranking_attacker:
+            PlayerData.set_ranking('attacker', ranking_attacker)
+        ranking_defender = ServerCom.fetch_ranking('defender')
+        if ranking_defender:
+            PlayerData.set_ranking('defender', ranking_defender)
 
     def __highlight_rfid(self, dt):
         obj = self.ids.iconRfid
@@ -426,7 +434,7 @@ class HighlightOverlay(object):
         Factory.unregister('HighLightObj')
 
 
-class LoungeScreen(BaseScreen):
+class LineupScreen(BaseScreen):
 
     current_player_slot = NumericProperty(0)
     players = ListProperty([{}] * 4)
@@ -435,20 +443,31 @@ class LoungeScreen(BaseScreen):
     drag_stop_id = NumericProperty(-1)
     dragging = BooleanProperty()
     allPlayersSet = BooleanProperty()
+    switching_locked = BooleanProperty()
+    elo_ranges = DictProperty({'min': 0, 'max': 2000})
 
     def __init__(self, **kwargs):
-        super(LoungeScreen, self).__init__(**kwargs)
+        super(LineupScreen, self).__init__(**kwargs)
         self.set_title('Aufstellung')
         self.ids.topbar.hasNext = True
         self.is_dropdown_open = False
         self.slot_touch = None
         self.allPlayersSet = False
+        self.switching_locked = False
+        self.all_players = None
 
         self.__reset()
 
     def on_enter(self):
+        self.all_players = PlayerData.get_players()
+        self.elo_ranges = PlayerData.get_ranges()
         Clock.schedule_once(lambda dt: self.__setup_player_dropdown(), 0.2)
         self.current_player_slot = 0
+        
+        for (i, val) in enumerate(self.players):
+            for p in self.all_players:
+                if p['id'] == self.players[i].get('id', 0):
+                    self.players[i] = p
 
     def on_leave(self):
         self.close_dropdown()
@@ -461,17 +480,15 @@ class LoungeScreen(BaseScreen):
         self.current_player_slot = 0
 
     def __setup_player_dropdown(self):
-        # only create if not existing
-        if not self.dropdown_player:
-            self.dropdown_player = DropDown(auto_dismiss=False)
-            self.dropdown_player.bind(on_select=self.on_player_select)
-            self.dropdown_player.bind(on_dismiss=self.on_dropdown_dismiss)
+        self.dropdown_player = DropDown(auto_dismiss=False)
+        self.dropdown_player.bind(on_select=self.on_player_select)
+        self.dropdown_player.bind(on_dismiss=self.on_dropdown_dismiss)
 
-            players = sorted(PlayerData.get_players(), key=lambda player: player['name'])
-            for player in players:
-                btn = PlayerButton(data=player)
-                btn.bind(on_release=lambda btn: self.dropdown_player.select(btn.data))
-                self.dropdown_player.add_widget(btn)
+        players = sorted(self.all_players, key=lambda player: player['name'])
+        for player in players:
+            btn = PlayerButton(data=player)
+            btn.bind(on_release=lambda btn: self.dropdown_player.select(btn.data))
+            self.dropdown_player.add_widget(btn)
 
     def on_dropdown_dismiss(self, instance):
         self.is_dropdown_open = False
@@ -518,7 +535,7 @@ class LoungeScreen(BaseScreen):
             self.set_player(player)
 
     def highlight_player(self, slot_id):
-        obj = self.ids['p' + str(slot_id)].ids.playerName
+        obj = self.ids['p' + str(slot_id)].ids.name
         HighlightOverlay(orig_obj=obj, parent=self, active=True, bold=True).animate(font_size=80, color=(1, 1, 1, 0))
 
     def switch_players(self, slot_id_1, slot_id_2):
@@ -583,11 +600,16 @@ class LoungeScreen(BaseScreen):
             # dragged to another slot
             else:
                 if self.slot_touch['target_id'] is not None:
-                    self.switch_players(self.slot_touch['source_id'], self.slot_touch['target_id'])
+                    if not self.switching_locked:
+                        self.switch_players(self.slot_touch['source_id'], self.slot_touch['target_id'])
+                    else:
+                        self.denied()
 
             self.slot_touch = None
             self.drag_start_id = -1
             self.drag_stop_id = -1
+        else:
+            self.close_dropdown()
 
     def set_player(self, player):
         # check if player has already been set before
@@ -598,28 +620,59 @@ class LoungeScreen(BaseScreen):
             self.players[self.current_player_slot] = player
             self.highlight_player(self.current_player_slot)
             SoundManager.play(Trigger.PLAYER_JOINED, player)
+            self.switching_locked = False
+
         else:
             # only switch position if new player is not already in current slot
             if idx_already_set != self.current_player_slot:
-                # switch slots
-                self.players[idx_already_set] = self.players[self.current_player_slot]
-                self.players[self.current_player_slot] = player
-                self.highlight_player(self.current_player_slot)
-                # check if target slot was empty
-                if self.players[idx_already_set] == {}:
-                    # player is moved to empty slot
-                    SoundManager.play(Trigger.PLAYER_MOVED)
+                if not self.switching_locked:
+                    # switch slots
+                    self.players[idx_already_set] = self.players[self.current_player_slot]
+                    self.players[self.current_player_slot] = player
+                    self.highlight_player(self.current_player_slot)
+                    # check if target slot was empty
+                    if self.players[idx_already_set] == {}:
+                        # player is moved to empty slot
+                        SoundManager.play(Trigger.PLAYER_MOVED)
+                    else:
+                        # player switches position with another player
+                        SoundManager.play(Trigger.PLAYERS_SWITCH)
+                        self.highlight_player(idx_already_set)
+                #locked
                 else:
-                    # player switches position with another player
-                    SoundManager.play(Trigger.PLAYERS_SWITCH)
-                    self.highlight_player(idx_already_set)
+                    self.denied()
+                    return
         # advance to next player block
         self.current_player_slot = (self.current_player_slot + 1) % 4
 
+    def check_positions(self, players):
+        if players[0]['id'] != self.players[0]['id'] and players[0]['id'] != self.players[1]['id']:
+            # switch sides
+            players[0], players[2] = players[2], players[0]
+            players[1], players[3] = players[3], players[1]
+        return players
+
     def randomize_players(self):
-        random.shuffle(self.players)
+        self.set_switching_lock(True)
+        players_copy = self.players[:]
+        random.shuffle(players_copy)
+        # check positions
+        self.players = self.check_positions(players_copy)
         SoundManager.play(Trigger.PLAYERS_SHUFFLE)
 
+    def equalize_players(self):
+        self.set_switching_lock(True)
+        # get min team elo lineup
+        permutations = list(itertools.permutations(self.players))
+        team_elo_list = [[i, abs(a['attacker']['elo'] + b['defender']['elo'] - c['attacker']['elo'] - d['defender']['elo'])] for i, (a, b, c, d) in enumerate(permutations)]
+        team_elo_list = sorted(team_elo_list, key=lambda x: x[1])
+        equal_lineup = list(permutations[team_elo_list[0][0]])
+        # check positions
+        self.players = self.check_positions(equal_lineup)
+        SoundManager.play(Trigger.PLAYERS_EQUALIZE)
+        
+    def set_switching_lock(self, state):
+        self.switching_locked = state
 
     def process_message(self, msg):
         if msg['trigger'] == 'rfid':
@@ -733,7 +786,8 @@ class MatchScreen(BaseScreen):
             view.add_widget(content)
             view.open()
         else:
-            self.manager.current = 'lounge'
+            self.manager.get_screen('lineup').set_switching_lock(False)
+            self.manager.current = 'lineup'
 
     # callback from GameData
     def handle_score(self, instance, score):
@@ -843,7 +897,8 @@ class MatchScreen(BaseScreen):
 
     def cancel_match(self):
         SoundManager.play(Trigger.MENU)
-        self.manager.current = 'lounge'
+        self.manager.get_screen('lineup').set_switching_lock(False)
+        self.manager.current = 'lineup'
 
     def resume_match(self):
         SoundManager.play(Trigger.GAME_RESUME)
@@ -881,7 +936,13 @@ class MatchScreen(BaseScreen):
         if error is None:
             self.submit_success = True
             self.__set_elo(elo)
-
+            # fetch ranking
+            ranking_attacker = ServerCom.fetch_ranking('attacker')
+            if ranking_attacker:
+                PlayerData.set_ranking('attacker', ranking_attacker)
+            ranking_defender = ServerCom.fetch_ranking('defender')
+            if ranking_defender:
+                PlayerData.set_ranking('defender', ranking_defender)
         else:
             self.submit_success = False
 

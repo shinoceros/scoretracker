@@ -22,17 +22,18 @@ class Trigger(Enum):
     RFID = 7
     PLAYER_JOINED = 8 # data: player dict
     PLAYERS_SWITCH = 9
-    PLAYER_MOVED = 10
-    BUTTON = 11
-    BACK = 12
-    EXIT = 13
-    OFFSIDE = 14
-    PLAYER_SELECTED = 15 # data: player dict
-    INTRO = 16
-    HOTSPOT_CONNECT = 17
-    HOTSPOT_DISCONNECT = 18
-    PLAYERS_SHUFFLE = 19
-    TRASH = 20
+    PLAYERS_EQUALIZE = 10
+    PLAYER_MOVED = 11
+    BUTTON = 12
+    BACK = 13
+    EXIT = 14
+    OFFSIDE = 15
+    PLAYER_SELECTED = 16 # data: player dict
+    INTRO = 17
+    HOTSPOT_CONNECT = 18
+    HOTSPOT_DISCONNECT = 19
+    PLAYERS_SHUFFLE = 20
+    TRASH = 21
 
 class SoundManagerBase(object):
 
@@ -64,6 +65,7 @@ class SoundManagerBase(object):
             'players_switch':   {'type': 'random', 'path': 'players_switch', 'volume': 1.0},
             'player_moved':     {'type': 'random', 'path': 'player_moved', 'volume': 1.0},
             'players_shuffle':  {'type': 'random', 'path': 'players_shuffle', 'volume': 1.0},
+            'players_equalize': {'type': 'random', 'path': 'players_equalize', 'volume': 1.0},
             'hotspot_connect':  {'type': 'random', 'path': 'hotspot', 'volume': 1.0},
             'hotspot_disconnect':  {'type': 'random', 'path': 'no_hotspot', 'volume': 1.0},
             'trash':            {'type': 'random', 'path': 'trash/*', 'volume': 1.0}
@@ -139,6 +141,9 @@ class SoundManagerBase(object):
                                     ],
             Trigger.PLAYERS_SHUFFLE:   [
                                         {'sound': 'players_shuffle'}
+                                    ],
+            Trigger.PLAYERS_EQUALIZE:   [
+                                        {'sound': 'players_equalize'}
                                     ],
             Trigger.PLAYER_SELECTED:  [
                                         {'sound': 'player'}
@@ -235,8 +240,8 @@ class SoundManagerBase(object):
         retval = False
         if sound_type in self.map_sound_files:
             if 'files' in self.map_sound_files[sound_type]:
-                retVal = True if self.map_sound_files[sound_type]['files'] else False
-        return retVal
+                retval = True if self.map_sound_files[sound_type]['files'] else False
+        return retval
 
     def create_player_sound(self, player):
         if 'id' in player:
