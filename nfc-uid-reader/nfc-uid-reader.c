@@ -38,35 +38,41 @@ bool nfcread()
 	assert (rc == 0);
 
 	size_t i;
-	char uid[8], last_uid[8];
+	const unsigned int maxChars = 14;
+	char uid[maxChars], last_uid[maxChars];
 	time_t timestamp, last_timestamp;
 	
 	while (nfc_initiator_select_passive_target(pnd, nmMifare, NULL, 0, &nt) > 0) {
 		// wait for nfc message
 		const size_t lenUid = nt.nti.nai.szUidLen;
-		if (4 == lenUid && 8 == nt.nti.nai.btSak) 
+		if (4 == lenUid || 7 == lenUid) 
 		{
 			const uint8_t *pUid = nt.nti.nai.abtUid;
 			// hex to string
-			for (i = 0; i < lenUid; ++i) 
+			for (i = 0; i < lenUid; ++i)
 			{
 				sprintf(&uid[i * 2], "%02X", pUid[i]);
+			}
+			// fill remaining buffer with zeroes
+			for (i = lenUid * 2; i < maxChars; ++i)
+			{
+				uid[i] = 0x00;
 			}
 			// get current timestamp
 			timestamp = time(0);
 			// get time interval from last read
 			int timespan = timestamp - last_timestamp;
 			// only send message if either current uid differs from last uid or debounce timeout exceeded
-			if (strncmp(uid, last_uid, 8) != 0 || timespan >= 5) 
+			if (strncmp(uid, last_uid, maxChars) != 0 || timespan >= 5) 
 			{
 				// build and send json message
 				char* pMsg = (char*)malloc(1024);
 				sprintf(pMsg, "{\"trigger\": \"rfid\", \"data\": \"%s\"}", uid);
 				s_send(zpublisher, pMsg);
-				// printf("%s\n", pMsg);
+				printf("%s\n", pMsg);
 				free(pMsg);
 				// store last uid and timestamp
-				strncpy(last_uid, uid, 8);
+				strncpy(last_uid, uid, maxChars);
 				last_timestamp = timestamp;
 			}
 		}
@@ -84,4 +90,3 @@ void main(int argc, const char *argv[])
 		nfcread();
 		usleep(1000000);
 	}
-}
