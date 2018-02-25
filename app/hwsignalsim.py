@@ -46,9 +46,9 @@ while True:
         sys.stdout.write("\r%s\r" % " " * 30)
         break;
     elif char == '1':
-        send_msg('goal', '1')
+        send_msg('goal', '0')
     elif char == '2':
-        send_msg('goal', '2')
+        send_msg('goal', '1')
     elif char == '3' :
         if lenMap == 0:
             rfid = "".join([random.choice(string.digits) for i in xrange(8)])
