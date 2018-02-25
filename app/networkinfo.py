@@ -1,7 +1,8 @@
+import subprocess
+
 from kivy.clock import Clock
 from soundmanager import SoundManager, Trigger
 from playerdata import PlayerData
-import subprocess
 
 class NetworkInfoBase(object):
 
@@ -60,9 +61,9 @@ class NetworkInfoBase(object):
 
     def reconnect(self):
         cmd = 'wpa_cli disconnect && wpa_cli reconnect'
-        proc = subprocess.Popen(cmd, shell=True)
+        subprocess.Popen(cmd, shell=True)
 
-    def get_data(self): 
+    def get_data(self):
         if self.player is not None:
             hostname = self.player['name']
         else:
