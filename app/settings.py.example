@@ -19,15 +19,36 @@ KIVY_FONTS = [
     },
     {
         "name": "FontAwesome",
-        "fn_regular": "./assets/fonts/fontawesome-webfont.ttf"
+        "fn_regular": "./assets/fonts/fa-solid-900.ttf"
+    },
+    {
+        "name": "Monofonto",
+        "fn_regular": "./assets/fonts/monofonto.ttf"
     }
 ]
 KIVY_DEFAULT_FONT = "RobotoCondensed"
+
+# sound settings
+# alsa device to be used for volume adjustment (RPi: u'PCM', VM: '')
+ALSA_DEVICE = u'PCM'
+TRASH_MIN_DELAY = 60
+TRASH_MAX_DELAY = 120
 
 # kickermanager server
 SERVER_BASE_URL = "http://<ENTER YOUR KICKERMANAGER BASE DIRECTORY HERE>"
 SERVER_USER_ID = <DEDICATED USER ID>
 SERVER_USER_PIN = "<PIN>"
+
+STORAGE_FILE = 'players.json'
+STORAGE_PLAYERS = 'players'
+STORAGE_RFIDMAP = 'rfidmap'
+
+# theme
+THEME_FILE = 'theme.json'
+
+# game settings
+LOCK_LINEUP_ON_DECISION = True
+SCORE_SWIPE_DISTANCE = 50
 
 # TTS
 # TTS_MODE: online: use online tts service, offline: use mbrola + espeak

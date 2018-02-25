@@ -6,10 +6,12 @@ from enum import Enum
 import glob
 import random
 from collections import deque
+
 from soundissuer import SoundIssuer
 from ttswrapper import TtsWrapper
 from mutagen.mp3 import MP3
 from gamedata import GameData
+import settings
 
 class Trigger(Enum):
     MENU = 0
@@ -260,7 +262,7 @@ class SoundManagerBase(object):
 
         if trigger in [Trigger.GAME_START, Trigger.GAME_RESUME, Trigger.GOAL]:
             Clock.unschedule(self.trash)
-            Clock.schedule_interval(self.trash, random.randint(60, 120))
+            Clock.schedule_interval(self.trash, random.randint(settings.TRASH_MIN_DELAY, settings.TRASH_MAX_DELAY))
             
     def trash(self, dt):
         self.play(Trigger.TRASH)
