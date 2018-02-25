@@ -9,6 +9,7 @@
 #:set color_dark_95     (0.000, 0.020, 0.000, 0.950) # rgba('000500F3')
 #:set color_white_100   (1.000, 1.000, 1.000, 1.000) # rgba('FFFFFFFF')
 #:set color_white_80    (1.000, 1.000, 1.000, 0.800) # rgba('FFFFFFCC')
+#:set color_white_50    (1.000, 1.000, 1.000, 0.800) # rgba('FFFFFF7F')
 #:set color_elo_bar     (1.000, 1.000, 1.000, 0.150)
 #:set color_elo_value   (1.000, 1.000, 1.000, 0.500)
 #:set color_white_2     (1.000, 1.000, 1.000, 0.020) # rgba('FFFFFF05')
@@ -182,6 +183,7 @@
 <TopBar>:
 	title: ''
 	customtext: ''
+	customicontext: ''
 	hasBack: True
 	hasNext: False
 	isBackEnabled: True
@@ -213,7 +215,7 @@
 		iconText: u'Zurück'
 		sound: Trigger.BACK
 		disabled: not root.isBackEnabled
-		on_press: root.parent.parent.on_back()
+		on_press: root.parent.parent.on_back_btn_pressed()
 		opacity: (1.0 if root.hasBack else 0.0)
 		size_hint_x: 0.175
 	# title + network info
@@ -243,6 +245,7 @@
 						font_size: 35
 						bold: True
 						color: color_connected if root.network_info['connected'] else color_disconnected
+	# next button / custom text + icon
 	AnchorLayout:
 		anchor_x: 'right'
 		anchor_y: 'center'
@@ -253,16 +256,32 @@
 			iconSize: 30
 			iconText: 'Weiter'
 			disabled: not root.isNextEnabled
-			on_press: root.parent.parent.on_next()
+			on_press: root.parent.parent.on_right_btn_pressed()
 			opacity: 1.0 if root.hasNext else 0.0
-		Label:
-			id: customlabel
-			text: root.customtext
-			bold: True
-			font_size: 30
-			color: color_white_100
+		StandardButton:
+			id: btn_timer
+			background_color: (0,0,0,0)
+			on_press: root.parent.parent.on_right_btn_pressed()
 			opacity: 0.0 if root.hasNext else 1.0
-
+			StackLayout:
+				pos: self.parent.pos
+				size: self.parent.size
+				orientation: 'rl-tb'
+				padding: 10
+				IconLabel:
+					id: customicon
+					text: root.customicontext
+					font_size: 20
+					color: color_white_50
+					size_hint_x: 0.4
+				Label:
+					font_name: 'Monofonto'
+					id: customlabel
+					text: root.customtext
+					bold: True
+					font_size: 30
+					color: color_white_100
+					size_hint_x: 0.5
 
 <SubPageLayout@BoxLayout>:
 	orientation: 'vertical'
@@ -477,7 +496,7 @@
 		IconPlayerSlot:
 			id: icon
 			size_hint_x: 0.25
-			text: icons.attacker if root.is_attacker else icons.defender
+			text: icons.bolt if root.is_attacker else icons.shield
 			active: root.active
 		BoxLayout:
 			size_hint_x: 0.6
@@ -501,32 +520,26 @@
 	name: ''
 	iconText: ''
 	iconLeft: True
-	highlight: False
 
 	StackLayout:
 		pos: self.parent.pos
 		size: self.parent.size
 		orientation: 'lr-tb' if root.iconLeft else 'rl-tb'
 		padding: 10
-		# TODO: winner highlight
+
 		canvas:
-			Color:
-				rgba: color_orange_12 if root.highlight else (0, 0, 0, 0)
-			Rectangle:
-				pos: self.pos
-				size: self.size
 			Color:
 				rgba: color_white_100
 		IconLabel:
 			id: icon
-			size_hint_x: 0.3
 			text: root.iconText
 			font_size: 30
+			size_hint_x: 0.3
 		Label:
-			size_hint_x: 0.6
 			text: root.name
 			font_size: 30
 			bold: True
+			size_hint_x: 0.6
 			size_hint_y: 0.7
 
 <TeamLabel@StackLayout>:
@@ -750,12 +763,12 @@
 					MatchPlayerLabel:
 						id: player0
 						name: root.players[0].get('name', '---')
-						iconText: icons.attacker
+						iconText: icons.bolt
 						iconLeft: True
 					MatchPlayerLabel:
 						id: player1
 						name: root.players[1].get('name', '---')
-						iconText: icons.defender
+						iconText: icons.shield
 						iconLeft: True
 				# submit button / ELO result
 				AnchorLayout:
@@ -809,12 +822,12 @@
 					MatchPlayerLabel:
 						id: player2
 						name: root.players[2].get('name', '---')
-						iconText: icons.attacker
+						iconText: icons.bolt
 						iconLeft: False
 					MatchPlayerLabel:
 						id: player3
 						name: root.players[3].get('name', '---')
-						iconText: icons.defender
+						iconText: icons.shield
 						iconLeft: False
 
 

@@ -28,7 +28,7 @@ import time
 import os
 import math
 import alsaaudio
-import random
+import randomhelper
 import itertools
 
 from hardwarelistener import HardwareListener
@@ -61,8 +61,6 @@ class BackgroundScreenManager(ScreenManager):
         self.add_widget(SettingsScreen(name='settings'))
         self.add_widget(LineupScreen(name='lineup'))
         self.add_widget(MatchScreen(name='match'))
-
-        SoundManager.play(Trigger.INTRO)
 
     def callback(self, dt):
         msg = self.hwlistener.read()
@@ -149,11 +147,17 @@ class BaseScreen(Screen, OnPropertyAnimationMixin):
         self.denied()
 
     # 'Back' pressed
-    def on_back(self):
+    def on_back_btn_pressed(self):
         self.manager.current = 'menu'
 
-    # 'Next' pressed
-    def on_next(self):
+    # Next or custom pressed - stacked buttons are tricky!
+    def on_right_btn_pressed(self):
+        if self.ids.topbar.hasNext and self.ids.topbar.isNextEnabled:
+            self.on_next_btn_pressed()
+        else:
+            self.on_custom_btn_pressed()
+        
+    def on_custom_btn_pressed(self):
         pass
 
     def denied(self):
@@ -169,6 +173,18 @@ class BaseScreen(Screen, OnPropertyAnimationMixin):
     def set_custom_text(self, text):
         self.ids.topbar.customtext = text
 
+    def set_custom_text_opacity(self, opacity):
+        self.ids.topbar.customlabel.opacity = opacity
+
+    def toggle_custom_text_opacity(self):
+        self.ids.topbar.customlabel.opacity = 1 - self.ids.topbar.customlabel.opacity
+
+    def set_custom_icon(self, icon_text):
+        self.ids.topbar.customicontext = icon_text
+
+    def set_custom_icon_opacity(self, opacity):
+        self.ids.topbar.customicon.opacity = opacity
+
 class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
 
     fadeopacity = NumericProperty(1.0)
@@ -179,6 +195,7 @@ class MenuScreen(BaseScreen, OnPropertyAnimationMixin):
         # initial fade in
         self.fadeopacity = 0.0
         NetworkInfo.register(self.__update_network_info)
+        SoundManager.play(Trigger.INTRO)
 
     def on_enter(self):
         pass
@@ -355,7 +372,7 @@ class SettingsScreen(BaseScreen):
         super(SettingsScreen, self).__init__(**kwargs)
         self.set_title('Einstellungen')
         try:
-            self.mixer = alsaaudio.Mixer(u'PCM')
+            self.mixer = alsaaudio.Mixer(settings.ALSA_DEVICE)
         except alsaaudio.ALSAAudioError:
             self.mixer = alsaaudio.Mixer()
         self.volume = self.mixer.getvolume()[0]
@@ -472,7 +489,7 @@ class LineupScreen(BaseScreen):
     def on_leave(self):
         self.close_dropdown()
 
-    def on_next(self):
+    def on_next_btn_pressed(self):
         self.manager.current = 'match'
 
     def __reset(self):
@@ -653,15 +670,15 @@ class LineupScreen(BaseScreen):
         return players
 
     def randomize_players(self):
-        self.set_switching_lock(True)
+        self.set_switching_lock(settings.LOCK_LINEUP_ON_DECISION)
         players_copy = self.players[:]
-        random.shuffle(players_copy)
-        # check positions
-        self.players = self.check_positions(players_copy)
+        while players_copy == self.players:
+            randomhelper.shuffle(players_copy)
+        self.players = players_copy
         SoundManager.play(Trigger.PLAYERS_SHUFFLE)
 
     def equalize_players(self):
-        self.set_switching_lock(True)
+        self.set_switching_lock(settings.LOCK_LINEUP_ON_DECISION)
         # get min team elo lineup
         permutations = list(itertools.permutations(self.players))
         team_elo_list = [[i, abs(a['attacker']['elo'] + b['defender']['elo'] - c['attacker']['elo'] - d['defender']['elo'])] for i, (a, b, c, d) in enumerate(permutations)]
@@ -710,9 +727,8 @@ class MatchScreen(BaseScreen):
     elo = NumericProperty(0.0)
     kickoff_team = NumericProperty(-1)
     kickoff_angle = NumericProperty(0)
-
-    MAX_GOALS = 6
-    MIN_SCORE_MOVE_PX = 100
+    timer_mode_elapsed_time = BooleanProperty(True)
+    timer_toggle_state = False
 
     def __init__(self, **kwargs):
         super(MatchScreen, self).__init__(**kwargs)
@@ -720,23 +736,56 @@ class MatchScreen(BaseScreen):
         self.set_title('Spiel')
         self.score_touch = None
         self.start_time = 0.0
+        self.stop_time = 0.0
+        self.timer_event = None
         self.submit_success = None
         self.thread = None
         self.__reset()
-        GameData.bind(score=self.handle_score)
         NetworkInfo.register(self.__callback_check_failed_submission)
+
+    def __reset(self):
+        self.state = ''
+        GameData.reset_match()
+        self.update_match()
+        self.set_custom_text('')
+        self.timer_mode_elapsed_time = True
+        self.ids.btnSubmit.blocking = False
+        container = self.ids.kickoff_ball.parent
+        self.ids.kickoff_ball.pos = (container.x + container.width / 2.0, container.y + container.height)
+        self.score_touch = None
+        self.players = [{}] * 4
+        self.kickoff_team = -1
+        self.elo = 0.0
+        Clock.unschedule(self.__update_timer_view)
+        Clock.unschedule(self.__animate_kickoff)
 
     def __set_submit_icon(self, icon):
         self.ids.btnSubmit.icon = icon
+
+    def restart_timer(self):
+        if self.timer_event:
+            self.timer_event.cancel()
+        self.timer_toggle_state = False
+        self.timer_event = Clock.schedule_interval(self.__update_timer_view, 1.0 if self.timer_mode_elapsed_time else 0.5)
+        Clock.schedule_once(self.__update_timer_view)
         
     def on_enter(self):
+        # reset and start match
         self.__reset()
         self.state = 'running'
-        self.start_time = time.time()
+        self.start_time = self.get_time()
         self.players = GameData.get_players()
         self.__set_submit_icon(icons.cloud_upload)
-        Clock.schedule_interval(self.__update_match_timer, 1.0)
+        self.restart_timer()
         self.handle_kickoff(True)
+
+    def on_leave(self):
+        self.__reset()
+
+    def get_time(self):
+        with open('/proc/uptime', 'r') as f:
+            uptime_seconds = float(f.readline().split()[0])
+            return uptime_seconds
 
     def handle_kickoff(self, say_player):
         if not GameData.is_match_finished():
@@ -768,10 +817,7 @@ class MatchScreen(BaseScreen):
         self.kickoff_angle += 15.0 * direction
         Clock.schedule_once(self.__animate_rotation, 0.04)
 
-    def on_leave(self):
-        self.__reset()
-
-    def on_back(self):
+    def on_back_btn_pressed(self):
         # game still running, ask for user confirmation
         if self.state == 'running':
             SoundManager.play(Trigger.GAME_PAUSE)
@@ -788,47 +834,38 @@ class MatchScreen(BaseScreen):
         else:
             self.manager.get_screen('lineup').set_switching_lock(False)
             self.manager.current = 'lineup'
+        
+    def on_custom_btn_pressed(self):
+        self.timer_mode_elapsed_time = not self.timer_mode_elapsed_time
+        self.restart_timer()
 
-    # callback from GameData
-    def handle_score(self, instance, score):
-        self.score = score
+    def update_match(self):
+        # fetch score from GameData
+        self.score = GameData.get_score()
         # update kickoff information
         self.handle_kickoff(False)
         # check max goal during match
         if self.state == 'running':
             if GameData.is_match_finished():
                 self.state = 'finished'
+                self.stop_time = self.get_time()
                 SoundManager.play(Trigger.GAME_END)
         # manual swiping can resume a finished match
-        elif self.state == 'finished':
+        elif self.state == 'finished' and not GameData.is_match_finished():
             self.state = 'running'
             SoundManager.play(Trigger.GAME_RESUME)
 
-    def __reset(self):
-        self.state = ''
-        GameData.reset_match()
-        self.set_custom_text('00:00')
-        self.ids.topbar.customlabel.opacity = 1
-        self.ids.btnSubmit.blocking = False
-        container = self.ids.kickoff_ball.parent
-        self.ids.kickoff_ball.pos = (container.x + container.width / 2.0, container.y + container.height)
-        self.score_touch = None
-        self.players = [{}] * 4
-        self.kickoff_team = -1
-        self.elo = 0.0
-        Clock.unschedule(self.__update_match_timer)
-        Clock.unschedule(self.__animate_kickoff)
-
-    def __handle_goal(self, team):
-        if team == '1':
-            GameData.add_goal(0)
-            obj = self.ids.labelHome
-        else:
-            GameData.add_goal(1)
-            obj = self.ids.labelAway
-
-        HighlightOverlay(orig_obj=obj, parent=self).animate(font_size=500, color=(1, 1, 1, 0), d=2.0)
-        SoundManager.play(Trigger.GOAL)
+    def __handle_goal(self, data):
+        # 0 : home, 1: away
+        if data in ["0", "1"]:
+            team_id = int(data)
+            GameData.add_goal(team_id)
+            # play goal sound
+            SoundManager.play(Trigger.GOAL)
+            # update local match data
+            self.update_match()
+            # highlight score board
+            HighlightOverlay(orig_obj=self.score_objects[team_id], parent=self).animate(font_size=500, color=(1, 1, 1, 0), d=2.0)
 
     def process_message(self, msg):
         if msg['trigger'] == 'goal' and self.state == 'running':
@@ -851,7 +888,7 @@ class MatchScreen(BaseScreen):
             return
         if self.score_touch:
             obj = self.score_objects[self.score_touch['id']]
-            ratio = min(1.0, abs(event.pos[1] - self.score_touch['startPos']) / self.MIN_SCORE_MOVE_PX)
+            ratio = min(1.0, abs(event.pos[1] - self.score_touch['startPos']) / settings.SCORE_SWIPE_DISTANCE)
             color = self.interpolate_color((1, 1, 1, 1), (1, 0.8, 0, 1), ratio)
             obj.color = color
 
@@ -861,21 +898,22 @@ class MatchScreen(BaseScreen):
         if self.score_touch:
             score_id = self.score_touch['id']
             dist = event.pos[1] - self.score_touch['startPos']
-            if abs(dist) > self.MIN_SCORE_MOVE_PX:
+            if abs(dist) > settings.SCORE_SWIPE_DISTANCE:
                 goal_up = dist > 0
                 if goal_up:
                     swipe_allowed = GameData.add_goal(score_id)
                 else:
                     swipe_allowed = GameData.revoke_goal(score_id)
                 if swipe_allowed:
+                    self.update_match()
                     HighlightOverlay(orig_obj=self.score_objects[score_id], parent=self).animate(font_size=500, color=(1, 1, 1, 0))
                     if goal_up:
                         SoundManager.play(Trigger.GOAL)
                     else:
                         SoundManager.play(Trigger.OFFSIDE)
                 else:
-                    # TODO: "Rote Karte"
-                    pass
+                    self.denied()
+
             self.score_objects[score_id].color = (1, 1, 1, 1)
         self.score_touch = None
 
@@ -887,13 +925,27 @@ class MatchScreen(BaseScreen):
             list_color_result.append(list_color_start[i] + (list_color_end[i] - list_color_start[i]) * ratio)
         return tuple(list_color_result)
 
-    def __update_match_timer(self, dt):
-        if self.state == 'running':
-            elapsed = int(time.time() - self.start_time)
-            self.ids.topbar.customlabel.opacity = 1
+    def __update_timer_view(self, dt):
+        self.timer_toggle_state = not self.timer_toggle_state
+        # show match timer
+        if self.timer_mode_elapsed_time:
+            if self.state == 'running':
+                elapsed = int(self.get_time() - self.start_time)
+                self.set_custom_text_opacity(1)
+            else:
+                elapsed = int(self.stop_time - self.start_time)
+                self.set_custom_text_opacity(1 if self.timer_toggle_state else 0)
+            
             self.set_custom_text('{:02d}:{:02d}'.format(elapsed / 60, elapsed % 60))
+            self.set_custom_icon(icons.stopwatch)
+        # show current time
         else:
-            self.ids.topbar.customlabel.opacity = 1 - self.ids.topbar.customlabel.opacity
+            timetext = time.strftime('%H:%M')
+            if not self.timer_toggle_state:
+                timetext = timetext.replace(':', ' ')
+            self.set_custom_text(timetext)
+            self.set_custom_icon(icons.clock)
+            self.set_custom_text_opacity(1)
 
     def cancel_match(self):
         SoundManager.play(Trigger.MENU)
